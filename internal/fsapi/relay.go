@@ -38,6 +38,7 @@ func Relay(w http.ResponseWriter, rc io.ReadCloser, onUsage func(map[string]any)
 
 	br := bufio.NewReaderSize(rc, 64*1024)
 	sawDone := false
+	var readErr error // 读流失败的真实原因
 	for {
 		line, err := br.ReadString('\n')
 		trimmed := strings.TrimSpace(line)
@@ -67,16 +68,22 @@ func Relay(w http.ResponseWriter, rc io.ReadCloser, onUsage func(map[string]any)
 			}
 		}
 		if err != nil {
+			readErr = err
 			break
 		}
 	}
+	_ = rc.Close()
 	if sawDone {
 		return nil
 	}
 	// 没收到 [DONE]：流被上游/自身中断。补一帧 error，**不补 [DONE]**。
+	//
+	// 报「为什么」而不是笼统一句 interrupted —— 真实原因来自 **Read 的错误**
+	// （`io.PipeReader.Close()` 永远返回 nil，所以原来那句 `rc.Close()` 拿不到任何东西，
+	// 把「任务 failed：…」「状态查询连续失败：…」「超过 30m 未完成」全吞掉了）。
 	msg := "upstream stream interrupted"
-	if err := rc.Close(); err != nil && !errors.Is(err, io.EOF) {
-		msg = err.Error()
+	if readErr != nil && !errors.Is(readErr, io.EOF) {
+		msg = readErr.Error()
 	}
 	writeErrorFrame(w, fl, msg)
 	return &ErrUpstream{Code: "upstream_stream_error", Message: msg}

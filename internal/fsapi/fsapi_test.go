@@ -2,6 +2,7 @@ package fsapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -410,5 +411,30 @@ func TestUpstreamProxyModes(t *testing.T) {
 	// 非法值退回直连，不 panic
 	if tr := NewWithProxy(":::not a url").HTTP.Transport.(*http.Transport); tr.Proxy != nil {
 		t.Fatal("非法代理串应该退回直连")
+	}
+}
+
+// TestRelaySurfacesRealReason 中断时必须报**真实原因**，不能只给一句笼统的 interrupted。
+//
+// 曾经的 bug：用 `rc.Close()` 取错误 —— 而 io.PipeReader.Close() 永远返回 nil，
+// 于是「任务 failed：…」「状态查询连续失败：…」这些真正有用的信息全被吞掉，
+// 用户只看到 "upstream stream interrupted"（排查无从下手）。
+func TestRelaySurfacesRealReason(t *testing.T) {
+	pr, pw := io.Pipe()
+	go func() {
+		_, _ = io.WriteString(pw, `data: {"choices":[{"delta":{"content":"半截"}}]}`+"\n\n")
+		_ = pw.CloseWithError(fmt.Errorf("futuresearch: 任务 t-1 failed：1/1 rows failed"))
+	}()
+	rec := httptest.NewRecorder()
+	err := Relay(rec, pr, nil)
+	if err == nil {
+		t.Fatal("截断应返回错误")
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "1/1 rows failed") {
+		t.Fatalf("错误帧必须带真实原因：%s", body)
+	}
+	if strings.Contains(body, "[DONE]") {
+		t.Fatalf("截断不得补 [DONE]：%s", body)
 	}
 }

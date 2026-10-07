@@ -110,17 +110,23 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/tenants/remove", s.guard(s.handleTenantRemove))
 	mux.HandleFunc("POST /api/tenants/reset", s.guard(s.handleTenantReset))
 
+	// MCP 端点：**只认精确路径**。
+	//
+	// 为什么不能用 `mux.Handle("/mcp/", h)` 这种前缀注册：Go 的 ServeMux 里
+	// `/mcp/` 会匹配 `/mcp/` 下的**一切** —— 于是本地工具没启用时，
+	// 客户端 POST `/mcp/local` 会静默拿到**研究工具**（实测踩到过）。
+	// 精确注册 + 最长匹配优先，才能保证「没挂的端点就是 404」。
 	if s.mcpHandler != nil && s.cfg.MCP.Enabled {
 		p := s.cfg.MCP.Path
 		if p == "" {
 			p = "/mcp"
 		}
 		mux.Handle(p, s.mcpHandler)
-		mux.Handle(p+"/", s.mcpHandler)
+		mux.Handle(p+"/", exactPath(p+"/", s.mcpHandler))
 	}
 	for p, h := range s.mcpExtra {
 		mux.Handle(p, h)
-		mux.Handle(p+"/", h)
+		mux.Handle(p+"/", exactPath(p+"/", h))
 	}
 	if s.cfg.Preview.Enabled {
 		p := s.cfg.Preview.Path
@@ -135,6 +141,18 @@ func (s *Server) Handler() http.Handler {
 	// 访问日志：面板/接口的每一次请求都记一行（含 UA 与来源）。
 	// 排查「浏览器到底有没有打到这个服务」时，这是唯一说得清的证据。
 	return s.accessLog(mux)
+}
+
+// exactPath 只在路径**完全相等**时放行，否则 404。
+// 用来兜住 `mux.Handle(p+"/", …)` 的前缀语义。
+func exactPath(want string, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != want {
+			http.NotFound(w, r)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 // accessLog 只记面板与管理接口（/v1 的流量另有 usage 流水）。

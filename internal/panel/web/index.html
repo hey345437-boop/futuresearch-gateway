@@ -542,14 +542,28 @@ function renderSetup() {
           contextWindow: 200000
           maxTokens: 32000
           reasoningEfforts: {low: low, medium: medium, high: high}`;
+  const mcpUrl = location.origin + (state.mcp?.path || "/mcp");
+  const lfUrl = location.origin + (state.localfs?.path || "/mcp/local");
+  const dshMcp = `
+# ── MCP：dsh 不会自动接，要显式加插件实例 ──────────────────────
+# 文件：~/.dsh/profiles/<你的 profile>/cordis.patch.yml
+[ { insert: [
+    { id: mcp-futuresearch, name: '@deepseek-ai/dsh-mcp-client',
+      config: { transport: streamable-http, serverName: futuresearch,
+                url: '${mcpUrl}' } }${state.localfs?.enabled ? `,
+    { id: mcp-localfs, name: '@deepseek-ai/dsh-mcp-client',
+      config: { transport: streamable-http, serverName: localfs,
+                url: '${lfUrl}' } }` : ""}
+] } ]
+# 改完重启 dsh 生效（MCP 插件是启动时挂的）`;
   const cfgs = {
-    dsh: dshCfg + `\n\n# 凭据写进 ~/.dsh/.credentials.yaml 的 refs:\n#   FSGW_KEY: ${state.api_key_set ? "（你的客户端 Key）" : "no-key-needed"}`,
+    dsh: dshCfg + `\n\n# 凭据写进 ~/.dsh/.credentials.yaml 的 refs:\n#   FSGW_KEY: ${state.api_key_set ? "（你的客户端 Key）" : "no-key-needed"}` + dshMcp,
     claude: JSON.stringify({ mcpServers: { futuresearch: { url: location.origin + (state.mcp?.path || "/mcp") } } }, null, 2),
     cursor: JSON.stringify({ mcpServers: { futuresearch: { url: location.origin + (state.mcp?.path || "/mcp") } } }, null, 2),
     curl: `curl ${base}/chat/completions \\\n  -H "Authorization: Bearer ${key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"agent-medium","stream":false,"messages":[{"role":"user","content":"2+2=?"}]}'`,
   };
   const hints = {
-    dsh: "把这段贴进 ~/.dsh/settings.yaml，凭据那行贴进 ~/.dsh/.credentials.yaml。嫌麻烦就点右边的「直接写入本机 dsh 配置」。",
+    dsh: "① 上面那段贴进 ~/.dsh/settings.yaml（凭据贴进 .credentials.yaml），或点「直接写入本机 dsh 配置」；② 下面那段 MCP 贴进 profile 的 cordis.patch.yml —— **MCP 不会自动启用**，dsh 里必须显式加插件实例，改完要重启。",
     claude: "Claude Desktop 的 claude_desktop_config.json 里加 mcpServers。注意：这里给的是 MCP（研究工具），不是模型。",
     cursor: "Cursor / 其它 MCP 客户端同理：加一个 Streamable HTTP 的 MCP server。",
     curl: "任何 OpenAI 兼容客户端都能用，Base URL 是 " + base + "。",

@@ -17,7 +17,7 @@ OpenAI 兼容接口 · 账号与额度管理 · 中文控制台 · 研究与本�
 
 **中文** · [English](README.en.md)
 
-[快速开始](#quick-start) · [面板预览](#panel) · [连接客户端](#clients) · [模型选择](#models) · [配置说明](#configuration)
+[快速开始](#quick-start) · [面板预览](#panel) · [连接客户端](#clients) · [模型选择](#models) · [配置说明](#configuration) · [免责声明](#disclaimer)
 
 </div>
 
@@ -43,6 +43,8 @@ FutureSearch 通过“提交任务 → 等待完成 → 读取结果”提供研
 | **本地项目** | 按需启用文件读取、搜索、写入和命令执行，另有 HTML 预览入口 |
 
 模型名单来自上游接口定义，具体权限和费用由 FutureSearch 决定。网关额度和 token 用量是估算值，不等于平台实际账单。
+
+账号池和租户功能仅适用于上游条款或另行授权允许的场景，详见[免责声明](#disclaimer)。
 
 <a id="quick-start"></a>
 
@@ -343,8 +345,17 @@ go test ./...
 
 仓库另有 `tools/panel-smoke.py`，用于检查面板页面；需要安装 Playwright。CI 包含格式、静态和并发测试，以及 Linux / macOS / Windows × amd64 / arm64 构建；版本标签触发发布和双架构 Docker 镜像推送。
 
-## 许可与项目说明
+## 许可
 
-[MIT License](LICENSE)。本项目是 FutureSearch 公开 API 的非官方适配，与 FutureSearch 无隶属关系。使用者自行提供账号和 API Key，上游服务条款、模型权限及收费规则以官方为准。
+[MIT License](LICENSE)。开源许可适用于本仓库代码，不授予上游服务、账号或模型的使用权。
+
+<a id="disclaimer"></a>
+
+## 免责声明
+
+1. **项目定位与来源。** 本项目用于技术交流和获授权服务的接口适配，是非官方工具，与 FutureSearch 或各模型厂商无隶属、合作或背书关系。项目不提供账号、API Key、模型权重或上游服务授权；模型与品牌名称仅用于说明接入对象，不代表本项目已核验模型身份。
+2. **账号与使用权限。** 请仅使用符合 [FutureSearch 服务条款](https://futuresearch.ai/terms/)、适用补充条款及当地法律的账号和 API Key。账号池、租户及转发功能不改变上游授权范围，不应用于规避账号、访问或计费限制，或未经许可转售服务。上游通用条款含同一用户多账号和商业使用限制，存在另行授权时应以适用授权为准。
+3. **结果与费用。** 模型可用性、输出内容和实际费用由上游决定；网关显示的 token 用量和租户扣款为估算值，不构成真实账单。使用者应保护密钥、核对消费，并在采用生成内容前进行必要验证。
+4. **责任范围。** 软件按现状提供，保证与责任限制以 [LICENSE](LICENSE) 和适用法律为准。本声明不构成法律意见，不替代必要授权，也不免除法律规定不能免除的责任。计划对外运营或收费时，请先确认所需授权和当地要求。
 
 <p align="center"><a href="#quick-start">开始使用</a> · <a href="https://github.com/hey345437-boop/futuresearch-gateway/issues">反馈问题</a> · <a href="README.en.md">English</a></p>

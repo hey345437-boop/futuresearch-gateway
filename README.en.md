@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> · <a href="#panel">Panel</a> · <a href="#connect-clients">Connect clients</a> · <a href="#models">Models</a> · <a href="#configuration">Configuration</a>
+  <a href="#quick-start">Quick start</a> · <a href="#panel">Panel</a> · <a href="#connect-clients">Connect clients</a> · <a href="#models">Models</a> · <a href="#configuration">Configuration</a> · <a href="#disclaimer">Disclaimer</a>
 </p>
 
 ---
@@ -277,4 +277,13 @@ For the browser smoke test, install Playwright and Chromium, then run `python3 t
 
 ## License
 
-[MIT](LICENSE). An unofficial wrapper around [FutureSearch](https://futuresearch.ai)'s public API, with no affiliation with FutureSearch.
+[MIT](LICENSE). See the license for its permissions, warranty terms, and liability provisions.
+
+<a id="disclaimer"></a>
+
+## Disclaimer
+
+- This is an **unofficial interface adapter for technical exchange**, with no affiliation with FutureSearch. It does not provide accounts, API keys, model weights, or permission to use upstream services. Brand and model names identify upstream offerings; they do not imply endorsement or independent verification of the underlying model's identity.
+- Use only accounts and API keys you are authorized to use, in compliance with the applicable [FutureSearch terms](https://futuresearch.ai/terms/). Account pools and tenant features are for authorized scenarios; do not use them to bypass access or billing restrictions, or resell services without permission. The general terms restrict multiple accounts held by the same user and commercial use; applicable supplemental terms or separate authorization must also be considered.
+- Model availability, outputs, and actual charges are determined by the upstream service. Token usage and tenant quota deductions in this gateway are estimates, not the platform's actual billing records.
+- The MIT license's “as is” terms and liability limitations apply only to the extent permitted by law. This statement does not replace required authorization or exclude responsibilities that cannot legally be waived.

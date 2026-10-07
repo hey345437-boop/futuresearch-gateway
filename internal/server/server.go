@@ -973,7 +973,7 @@ func (s *Server) handleTenantRemove(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	s.tenants.Remove(req.Key)
-	s.appendLog("删除租户 " + req.Key[:min(12, len(req.Key))])
+	s.appendLog("删除租户 " + short(req.Key)) // 只留前缀；日志里不放完整 key
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 

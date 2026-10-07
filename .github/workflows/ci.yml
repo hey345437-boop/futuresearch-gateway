@@ -21,6 +21,16 @@ jobs:
       - run: go vet ./...
       - run: go test ./... -race -count=1
 
+  leak-scan:
+    # 这个仓库是公开的 —— 别把本机的运营细节（号池规模、余额、域名、key）
+    # 写进提交信息或文档里。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0        # 要扫全部提交信息
+      - run: bash tools/leak-scan.sh
+
   build:
     runs-on: ubuntu-latest
     needs: test

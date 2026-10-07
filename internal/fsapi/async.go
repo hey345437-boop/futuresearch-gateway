@@ -149,37 +149,6 @@ func (c *Client) Sessions(key string, limit int) ([]map[string]any, int, []byte,
 	return list, status, raw, nil
 }
 
-// ClassifyOp 把一批条目按类别分（上游 /operations/classify）。
-func (c *Client) ClassifyOp(key string, categories []string, items []string, task string) (string, string, int, []byte, error) {
-	rows := make([]map[string]any, 0, len(items))
-	for _, it := range items {
-		rows = append(rows, map[string]any{"text": it})
-	}
-	body := map[string]any{
-		"input":                rows,
-		"task":                 task,
-		"categories":           categories,
-		"classification_field": "text",
-		"include_reasoning":    true,
-	}
-	return c.runOpOnce(key, "classify", body)
-}
-
-// RankOp 按任务给条目打分排序（上游 /operations/rank）。
-func (c *Client) RankOp(key string, task string, items []string) (string, string, int, []byte, error) {
-	rows := make([]map[string]any, 0, len(items))
-	for _, it := range items {
-		rows = append(rows, map[string]any{"text": it})
-	}
-	body := map[string]any{
-		"input":      rows,
-		"task":       task,
-		"field_name": "text",
-		"field_type": "str",
-	}
-	return c.runOpOnce(key, "rank", body)
-}
-
 // runOpOnce 投一个操作并等到出结果（同步小操作走这条）。
 func (c *Client) runOpOnce(key, op string, body map[string]any) (string, string, int, []byte, error) {
 	status, raw, err := c.call(key, http.MethodPost, "/operations/"+op, body)

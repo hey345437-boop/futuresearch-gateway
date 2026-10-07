@@ -143,7 +143,8 @@ func main() {
 	}()
 
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	// os.Interrupt 在 Windows 上是 Ctrl+C（那边没有 SIGTERM）
+	signal.Notify(sig, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 	fmt.Println("\n退出中…")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

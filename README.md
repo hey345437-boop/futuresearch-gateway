@@ -209,6 +209,23 @@ curl http://127.0.0.1:7868/v1/chat/completions \
 - 没开的工具**不会出现在 tools/list 里**（免得模型反复试）
 - 读有大小上限、命令有超时与输出上限、搜索有命中上限
 
+## 平台
+
+六个平台都有预编译产物（`linux/darwin/windows` × `amd64/arm64`），Docker 镜像是 `linux/amd64` + `linux/arm64`。
+
+| | 状态 |
+|---|---|
+| macOS / Linux | 开发与实测平台 |
+| **Windows** | **能构建、能跑**，但下面两条要注意（我没有 Windows 机器实测） |
+| Docker | 多架构，Apple Silicon 也能原生跑 |
+
+Windows 上的两个差异：
+
+- `run_command` **只能直接跑 `.exe`**。npm/yarn/pnpm 是 `.cmd` 垫片，要显式写
+  `["cmd", "/c", "npm", "test"]` —— 我们**不替你在背后起 shell**（那等于把 no-shell 保证废掉）。
+- 本地工具的环境变量清洗名单已补 `PATHEXT` / `SystemRoot` / `COMSPEC` / `TEMP` 等
+  （缺 `SystemRoot` 的话很多程序连 socket 都起不来）。
+
 ## 限制
 
 - **不支持工具调用**：上游 API 没有工具回调面，模型不会调你的本地工具。

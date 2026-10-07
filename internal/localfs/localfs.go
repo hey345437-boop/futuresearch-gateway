@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -87,7 +88,12 @@ func (f *FS) resolve(p string) (string, error) {
 		return f.root, nil
 	}
 	if filepath.IsAbs(p) {
-		p = strings.TrimPrefix(filepath.Clean(p), string(filepath.Separator))
+		p = filepath.Clean(p)
+		// 去掉根：Unix 的 "/"，Windows 的 "\" 以及盘符 "C:\"
+		p = strings.TrimPrefix(p, string(filepath.Separator))
+		if vol := filepath.VolumeName(p); vol != "" {
+			p = strings.TrimPrefix(strings.TrimPrefix(p, vol), string(filepath.Separator))
+		}
 	}
 	joined := filepath.Join(f.root, p)
 
@@ -111,8 +117,9 @@ func (f *FS) resolve(p string) (string, error) {
 	}
 	full := filepath.Join(append([]string{real}, tail...)...)
 
-	// 必须在 root 内（用分隔符边界比较，避免 /a/rootx 匹配 /a/root）
-	if full != f.root && !strings.HasPrefix(full, f.root+string(filepath.Separator)) {
+	// 必须在 root 内（用分隔符边界比较，避免 /a/rootx 匹配 /a/root）。
+	// Windows / macOS 默认大小写不敏感，比较时统一折一下，否则 C:\Root 会被判越界。
+	if !withinRoot(full, f.root) {
 		return "", fmt.Errorf("越界：%s 不在允许的根目录内", p)
 	}
 	return full, nil
@@ -379,9 +386,22 @@ func (f *FS) RunCommand(ctx context.Context, argv []string, dir string) (string,
 // 内部
 // ---------------------------------------------------------------------------
 
-// scrubbedEnv 清洗环境变量：去掉密钥类，保留 PATH/HOME/LANG 等。
+// scrubbedEnv 清洗环境变量：去掉密钥类，保留运行命令**必需**的那些。
+//
+// 名单要跨平台：Windows 上 PATH/PATHEXT/SystemRoot/COMSPEC 缺一不可
+// （没有 SystemRoot，很多程序连 socket 都起不来；没有 PATHEXT，找不到 .exe）。
 func scrubbedEnv() []string {
-	keep := map[string]bool{"PATH": true, "HOME": true, "LANG": true, "LC_ALL": true, "TERM": true, "TMPDIR": true, "USER": true, "SHELL": true}
+	keep := map[string]bool{
+		// 通用
+		"PATH": true, "HOME": true, "LANG": true, "LC_ALL": true, "TERM": true,
+		"TMPDIR": true, "USER": true, "SHELL": true,
+		// Windows
+		"PATHEXT": true, "SYSTEMROOT": true, "SYSTEMDRIVE": true, "WINDIR": true,
+		"COMSPEC": true, "TEMP": true, "TMP": true, "USERPROFILE": true,
+		"APPDATA": true, "LOCALAPPDATA": true, "PROGRAMDATA": true, "PROGRAMFILES": true,
+		"PROGRAMFILES(X86)": true, "OS": true, "NUMBER_OF_PROCESSORS": true,
+		"PROCESSOR_ARCHITECTURE": true, "HOMEDRIVE": true, "HOMEPATH": true,
+	}
 	var out []string
 	for _, kv := range os.Environ() {
 		k := kv[:strings.IndexByte(kv, '=')]
@@ -416,4 +436,16 @@ func truncate(s string, n int) string {
 // SortFiles 给面板列目录用。
 func SortFiles(entries []fs.DirEntry) {
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+}
+
+// withinRoot 判断 p 是否在 root 之内（大小写不敏感平台上折大小写比较）。
+func withinRoot(p, root string) bool {
+	if p == root {
+		return true
+	}
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		lp, lr := strings.ToLower(p), strings.ToLower(root)
+		return strings.HasPrefix(lp, lr+strings.ToLower(string(filepath.Separator)))
+	}
+	return strings.HasPrefix(p, root+string(filepath.Separator))
 }

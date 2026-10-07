@@ -92,7 +92,9 @@ func (l *LocalToolSet) Tools() []map[string]any {
 		out = append(out, map[string]any{
 			"name": "run_command",
 			"description": "在项目根目录（或指定子目录）里执行一条命令。**不走 shell** —— " +
-				"argv 逐项传入，所以 `;`、`|`、`&&` 都不会被解释。有超时和输出上限。",
+				"argv 逐项传入，所以 `;`、`|`、`&&` 都不会被解释。有超时和输出上限。" +
+				"Windows 上只能直接跑 `.exe`；npm/yarn/pnpm 这类 `.cmd` 垫片要显式写 " +
+				"`[\"cmd\", \"/c\", \"npm\", \"test\"]`（我们不替你在背后起 shell）。",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{

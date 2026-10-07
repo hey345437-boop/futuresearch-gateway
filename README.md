@@ -1,277 +1,335 @@
-# futuresearch-gateway
+<div align="center">
 
-把 [FutureSearch](https://futuresearch.ai) 的**异步任务式研究 API** 反代成
-**OpenAI 兼容端点 + 管理面板 + MCP 工具**。
+<img src="docs/assets/readme-cover.svg" alt="FutureSearch Gateway — 一个入口，连接研究、账号与管理" width="100%">
 
-一个二进制、一个配置文件、一个 data 目录 —— 这就是全部。
+# FutureSearch Gateway
 
-```
-你的客户端 ──OpenAI 兼容──▶ futuresearch-gateway ──▶ FutureSearch v0 API
-（dsh / Claude Code /            ├─ 号池：多 key 轮询 + 粘性 + 冷却
-  Cursor / 任何 SDK）            ├─ 管理面板：账号 / 模型 / 用量 / 前置指令
-                                 └─ MCP：/mcp 暴露 research / forecast / models
-```
+**Claude、GPT、Gemini……高级模型，一次接齐！**
 
-## 为什么需要它
+OpenAI 兼容接口 · 账号与额度管理 · 中文控制台 · 研究与本地文件 MCP
 
-FutureSearch 的上游**不是 chat completions**，是异步任务：
+<p>
+<a href="https://github.com/hey345437-boop/futuresearch-gateway/actions/workflows/ci.yml"><img src="https://github.com/hey345437-boop/futuresearch-gateway/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+<a href="go.mod"><img src="https://img.shields.io/badge/Go-1.24%2B-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.24+"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2D6747?style=flat-square" alt="MIT License"></a>
+<a href="https://github.com/hey345437-boop/futuresearch-gateway/releases/latest"><img src="https://img.shields.io/github/v/release/hey345437-boop/futuresearch-gateway?style=flat-square&color=2D6747" alt="Latest release"></a>
+</p>
 
-```
-POST /operations/agent-map  {"input":[],"task":"…"}  →  {task_id}
-GET  /tasks/{id}/status                              →  running | completed | failed
-GET  /tasks/{id}/result                              →  {"data":[{"answer":…}]}
-```
+**中文** · [English](README.en.md)
 
-市面上的客户端都不会说这套。这个网关把它翻译成所有客户端都认的 OpenAI 协议，
-并且处理掉那些**不显然的坑**（见下面「设计要点」）。
+[快速开始](#quick-start) · [面板预览](#panel) · [连接客户端](#clients) · [模型选择](#models) · [配置说明](#configuration)
 
-## 一键部署
+</div>
 
-### Docker（推荐）
+---
+
+**143 个上游模型档位、35 个家族入口、7 个研究预设，集中到你自己的 AI 工作台。** 日常问答、深度研究、概率预测，选好模型就能开始；账号、额度和回答风格，也在同一个面板里管理。
+
+FutureSearch 通过“提交任务 → 等待完成 → 读取结果”提供研究能力。这个网关把它转换成 OpenAI Chat Completions 和 MCP 接口，让 DSH、支持 MCP 的 AI 客户端和常用 SDK 都能接入。
+
+**一个程序、一个配置文件、一个数据目录。** 网页控制台已经内置，无需另外安装前端服务。
+
+## 能做什么
+
+| 功能 | 你可以做的事 |
+| :--- | :--- |
+| **高级模型，一站接入** | Claude、GPT、Gemini、Grok、GLM 等上游模型家族，统一连接常用客户端 |
+| **完整目录，自由选档** | 143 个上游模型档位、35 个家族入口，以及 7 个研究/预测预设 |
+| **熟悉的聊天接口** | 使用 `/v1/chat/completions` 与 `/v1/models`，支持流式和普通回答 |
+| **账号管理** | 添加多个 API Key、查看余额、复用可用账号，遇到异常进入冷却 |
+| **租户额度** | 给不同使用者分配 Key，设置额度、并发和允许的档位；额度按网关估算扣减 |
+| **回答风格** | 为所有模型或指定模型设置前置指令 |
+| **研究工具** | 通过 MCP 调用 `research`、`forecast` 和 `models` |
+| **本地项目** | 按需启用文件读取、搜索、写入和命令执行，另有 HTML 预览入口 |
+
+模型名单来自上游接口定义，具体权限和费用由 FutureSearch 决定。网关额度和 token 用量是估算值，不等于平台实际账单。
+
+<a id="quick-start"></a>
+
+## 快速开始
+
+### 方式一：Docker
+
+以下命令适用于 macOS / Linux。先设置自己的**网关访问 Key**和**面板密码**，再启动：
 
 ```bash
+mkdir -p fsgw-data
+
 docker run -d --name fsgw \
-  -p 7868:7868 \
-  -v $PWD/fsgw-data:/data \
+  --user "$(id -u):$(id -g)" \
+  -p 127.0.0.1:7868:7868 \
+  -v "$PWD/fsgw-data:/data" \
   -e FSGW_LISTEN_HOST=0.0.0.0 \
   -e FSGW_API_KEY=sk-your-client-key \
   -e FSGW_ADMIN_PASSWORD=your-panel-password \
   ghcr.io/hey345437-boop/futuresearch-gateway:latest
 ```
 
-打开 `http://127.0.0.1:7868/` → 面板 → 「账号」→ 粘一个 FutureSearch API key → 就能用了。
+这个示例将端口发布到本机，并以当前用户身份写入数据目录。镜像支持 `linux/amd64` 和 `linux/arm64`。
 
-> **安全闸**：监听非环回地址时**必须**同时设 `FSGW_API_KEY` 与 `FSGW_ADMIN_PASSWORD`，
-> 否则进程直接拒绝启动。想只给本机用就把 host 留 `127.0.0.1`（默认）。
+打开 **<http://127.0.0.1:7868/>**，用设置的面板密码登录，在「接入」或「账号」页面添加自己的 FutureSearch API Key。
 
-### 裸二进制
+### 方式二：下载程序
+
+到 [Releases](https://github.com/hey345437-boop/futuresearch-gateway/releases/latest) 下载对应系统的程序，放到一个单独的文件夹中运行：
+
+| 系统 | 文件 |
+| :--- | :--- |
+| Apple 芯片 Mac | `fsgw-darwin-arm64` |
+| Intel Mac | `fsgw-darwin-amd64` |
+| Linux | `fsgw-linux-amd64` / `fsgw-linux-arm64` |
+| Windows | `fsgw-windows-amd64.exe` / `fsgw-windows-arm64.exe` |
+
+例如 Apple 芯片 Mac：
 
 ```bash
-go build -o fsgw ./cmd/gateway && ./fsgw          # 默认 http://127.0.0.1:7868
+chmod +x fsgw-darwin-arm64
+./fsgw-darwin-arm64
 ```
 
-首次启动会生成 `config.json` 与 `data/`。面板上改配置，改完即生效（不用重启）。
+默认打开 `127.0.0.1:7868`。首次运行会生成 `config.json`，账号等数据保存在 `data/`；运行版无需安装 Go。
 
-### 当 MCP server 用（stdio）
+### 方式三：源码启动
 
-本地 AI 客户端可以直接 spawn 这个二进制当 MCP server，**不需要 HTTP 服务**：
+需要 **Go 1.24+**，程序仅依赖 Go 标准库。
 
 ```bash
-futuresearch-gateway --mcp-stdio
+git clone https://github.com/hey345437-boop/futuresearch-gateway.git
+cd futuresearch-gateway
+go build -o fsgw ./cmd/gateway
+./fsgw
 ```
 
-## 账号从哪来
+本机启动默认允许不设置鉴权；可以在设置页配置访问 Key 和管理密码。监听非本机地址时，两项都必须填写。
 
-FutureSearch 注册送 **$20**（不要信用卡），一次研究约 $0.2~5。注册要过 Cloudflare Turnstile，
-所以得用**真浏览器 + 干净的出口 IP**。造号流程见仓库外的脚本，核心就三步：
-协议注册 → 真浏览器过验证码 → 建 API key。**每个号 ≈30 秒**。
+<a id="panel"></a>
 
-一个号用完就换下一个 —— 网关本身就是号池，多塞几个 key 即可。
+## 面板预览
 
-## 客户端怎么接
+![FutureSearch Gateway 接入页面](docs/assets/panel-preview.jpg)
 
-### dsh / pi-ai（`~/.dsh/settings.yaml`）
+<p align="center"><sub>真实程序的本地接入页面，使用空账号列表；没有展示私人密钥或真实余额。</sub></p>
+
+| 页面 | 用途 |
+| :--- | :--- |
+| **概览** | 查看账号、余额、调用记录和运行状态 |
+| **接入** | 添加账号、选择客户端、复制接入配置 |
+| **账号** | 查看和管理账号池 |
+| **租户** | 管理使用者的 Key、额度、并发与档位 |
+| **模型** | 查找模型名称和推理档位 |
+| **预览** | 打开预览目录中的 HTML 文件 |
+| **设置** | 调整前置指令、密码和运行配置 |
+
+<a id="clients"></a>
+
+## 连接客户端
+
+### 先分清三个值
+
+| 值 | 填在哪里 |
+| :--- | :--- |
+| **FutureSearch API Key** | 网关面板「账号」中，用于访问上游 |
+| **网关访问 Key** | DSH、SDK 等客户端中，对应 `FSGW_API_KEY` / `api_key` |
+| **面板密码** | 登录管理页面，对应 `FSGW_ADMIN_PASSWORD` / `admin_password` |
+
+一个 FutureSearch 账号就可以请求其有权限使用的模型，无需为每家模型单独配置账号。账号与 API Key 请在 [FutureSearch 官网](https://futuresearch.ai) 获取。
+
+### DSH / pi-ai
+
+本机直接运行网关时，可以在「接入」页点击「直接写入本机 dsh 配置」。程序会先备份 `settings.yaml`。Docker 中运行时，该按钮操作的是容器内的文件，宿主机请手动配置。
+
+将下面的配置合并到 `~/.dsh/settings.yaml` 的 `llm-pi-ai.providers`，保留已有的其他提供方：
 
 ```yaml
 llm-pi-ai:
   providers:
     futuresearch:
-      displayName: FutureSearch
-      apiKeyEnv: FUTURESEARCH_KEY       # 密钥放 ~/.dsh/.credentials.yaml
+      displayName: FutureSearch Gateway
+      apiKeyEnv: FSGW_KEY
       api: openai-completions
       baseURL: http://127.0.0.1:7868/v1
+      timeoutMs: 1920000
+      streamIdleTimeoutMs: 300000
+      retryPolicy: {mode: normal, maxRetries: 0}
       models:
         - id: agent-medium
-          name: "Agent"
-          contextWindow: 200000
-          maxTokens: 32000
+          name: Agent
           reasoningEfforts: {low: low, medium: medium, high: high}
         - id: claude-fable-5
-          name: "Claude Fable-5"
-          contextWindow: 200000
-          maxTokens: 32000
-          reasoningEfforts: {low: low, medium: medium, high: high}
+          name: Claude Fable-5
+          reasoningEfforts: {low: low, medium: medium, high: high, max: max}
 ```
 
-### Claude Desktop / Cursor（MCP）
+在 DSH 的凭据设置中添加 `FSGW_KEY`，值与**网关访问 Key**相同。网关未设 Key 的本机模式可填 `no-key-needed` 占位。关闭客户端自动重试，可以减少重复创建研究任务的机会。
 
-```json
-{ "mcpServers": { "futuresearch": { "url": "http://127.0.0.1:7868/mcp" } } }
-```
+### curl / OpenAI 兼容 SDK
 
-拿到三个工具：`research(question, effort?, model?)` / `forecast(question)` / `models()`。
-
-### curl
+客户端统一填写 `baseURL: http://127.0.0.1:7868/v1`，使用网关访问 Key：
 
 ```bash
+# 只读取模型目录，不创建研究任务
+curl http://127.0.0.1:7868/v1/models \
+  -H 'Authorization: Bearer sk-your-client-key'
+
+# 创建一次研究任务，可能消耗上游余额
 curl http://127.0.0.1:7868/v1/chat/completions \
-  -H "Authorization: Bearer sk-your-client-key" -H "Content-Type: application/json" \
-  -d '{"model":"agent-medium","stream":false,"messages":[{"role":"user","content":"2+2=?"}]}'
+  -H 'Authorization: Bearer sk-your-client-key' \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"agent-medium","stream":true,"messages":[{"role":"user","content":"简要比较两种储能技术的优缺点。"}]}'
 ```
 
-## 模型怎么用
+### MCP 客户端
 
-两种写法，都支持：
-
-| 写法 | 例子 | 说明 |
-|---|---|---|
-| **预设档** | `agent-low` / `agent-medium` / `agent-high` | 平台自己挑模型，档位 = 研究深度（0/5/10 轮迭代） |
-| | `multi-agent-*` | 多方向 agent 并行研究后综合 |
-| | `forecast` | 二值概率预测（0–100 + 理由） |
-| **模型家族 + 档位** | `claude-fable-5` + `reasoning_effort: max` | 你指定底层模型，档位单独选 |
-| **完整枚举名** | `claude-fable-5-max` | 档位写在名字里 —— **过第三方网关时用这个** |
-
-`/v1/models` 三种形态都列（共 185 个）。**挂到 one-api / new-api / sub2api 这类网关后面时，
-用完整枚举名** —— 那些网关会把请求体重建成自己的 struct，`reasoning_effort` 可能被丢掉。
-
-## 设计要点（这个项目真正值钱的地方）
-
-### 1. 保活必须是「真事件」，空心跳没用
-
-客户端的流空闲看门狗按**解析出来的事件**计时，不按字节数。空 delta 帧（`delta: {}`）
-解析不出任何事件 —— 任务跑满 5 分钟，客户端照样报
-`stream idle timeout after 300000ms`，而网关这边日志显示一直在写。
-
-所以这里把**任务进度当 `reasoning_content` 发**：既是真实事件（重置看门狗），
-也让等待期在客户端的「思考」面板里可见。节流到 45 秒一条。
-
-### 2. 失败只发 error 帧，**绝不补 `[DONE]`**
-
-`[DONE]` 是「正常结束」的标记。截断时补它 = 把失败伪装成成功 ——
-客户端会拿着半截 tool_call arguments 去解析，而网关日志里什么都看不到。
-上游 5xx 还会**连续容忍 20 次**才放弃（任务通常还在跑，判太早等于白花钱）。
-
-### 3. 143 个枚举收敛成「家族 × 档位」
-
-上游 `llm` 参数有 143 个枚举（33 个家族 × 推理档）。平铺进客户端的模型选择器太长，
-所以提供「家族名 + `reasoning_effort`」这一层；完整枚举名同时保留，两条路都通。
-
-### 4. 前置指令注入
-
-上游 agent 自带一套输出风格（偏科普腔），而它的 API **没有 system 字段** ——
-唯一能压过它的地方就是任务文本最前面。面板里可以按模型配注入指令：
+支持 HTTP MCP 的客户端可以连接研究入口：
 
 ```json
-"prompts": { "*": "【最高优先级】不要科普腔，直接给结论。", "agent-high": "" }
-```
-
-`*` 是所有模型的兜底，具体模型名覆盖它，**空串 = 该模型不注入**。
-
-### 5. usage 是**估算值**
-
-上游按任务计费、不返回 token 用量。为了让下游网关/客户端有量可记，
-这里发一帧估算的 usage（`2 字符 ≈ 1 token`）。
-**够看相对用量，不能拿来按 token 计费** —— 想按钱管额度请用「按次计费」。
-
-## 面板
-
-七个页面：概览 / **接入** / 账号 / 租户 / 模型 / 预览 / 设置。
-
-**接入**是三步流水：粘一个 key → 选客户端（dsh / Claude Desktop / Cursor / curl）→ 复制配置，
-或者点「直接写入本机 dsh 配置」让它自己写（会先备份 `settings.yaml`，缩进按文件实际层级推断）。
-
-**预览**把 `preview.dir` 挂到 `/preview/`：agent 生成的 HTML 写进去就能直接打开，
-不用「吐一段代码让人自己存文件再打开」。
-
-## 两组 MCP，别混
-
-网关同时挂**两组** MCP（各自的 URL —— 让人一眼看清哪些工具会碰磁盘）：
-
-| 端点 | server 名 | 工具 | 碰本地磁盘？ |
-|---|---|---|---|
-| `/mcp` | `futuresearch` | `research` / `forecast` / `models` | ❌ 纯云端研究 |
-| `/mcp/local` | `localfs` | `list_dir` / `read_file` / `search`（+ 可选 `write_file` / `mkdir` / `run_command`） | ✅ |
-
-`/mcp/local` 就是「让 AI 真的操作本地项目」的那一半 —— 因为上游 agent 够不着你的磁盘
-（没有工具回调面），本地手脚必须由本地进程提供。
-
-```json
-{ "mcpServers": {
-    "futuresearch": { "url": "http://127.0.0.1:7868/mcp" },
-    "localfs":      { "url": "http://127.0.0.1:7868/mcp/local" } } }
-```
-
-### 本地工具的安全模型
-
-```jsonc
-"localfs": {
-  "enabled": true,
-  "root": "/Users/you/projects",   // 必填；所有路径都被限制在这里面
-  "allow_write": true,             // 默认 false
-  "allow_exec": false,             // 默认 false
-  "max_read_kb": 256, "max_out_kb": 64, "timeout_sec": 30
-}
-```
-
-- 路径先解析成绝对路径 + **解符号链接**再校验，root 里放软链也逃不出去
-- 绝对路径不报错，但会被**解释成相对 root**（模型写 `/etc/passwd` 只落到 `<root>/etc/passwd`）
-- `run_command` **不走 shell**：argv 逐项传入，`;` / `|` / `&&` 都不会被解释；环境变量清洗
-- 没开的工具**不会出现在 tools/list 里**（免得模型反复试）
-- 读有大小上限、命令有超时与输出上限、搜索有命中上限
-
-## 平台
-
-六个平台都有预编译产物（`linux/darwin/windows` × `amd64/arm64`），Docker 镜像是 `linux/amd64` + `linux/arm64`。
-
-| | 状态 |
-|---|---|
-| macOS / Linux | 开发与实测平台 |
-| **Windows** | **能构建、能跑**，但下面两条要注意（我没有 Windows 机器实测） |
-| Docker | 多架构，Apple Silicon 也能原生跑 |
-
-Windows 上的两个差异：
-
-- `run_command` **只能直接跑 `.exe`**。npm/yarn/pnpm 是 `.cmd` 垫片，要显式写
-  `["cmd", "/c", "npm", "test"]` —— 我们**不替你在背后起 shell**（那等于把 no-shell 保证废掉）。
-- 本地工具的环境变量清洗名单已补 `PATHEXT` / `SystemRoot` / `COMSPEC` / `TEMP` 等
-  （缺 `SystemRoot` 的话很多程序连 socket 都起不来）。
-
-## 限制
-
-- **不支持工具调用**：上游 API 没有工具回调面，模型不会调你的本地工具。
-  它是**研究子程序**，不是编码 agent。本地手脚靠上面的 `/mcp/local`。
-- **不支持图片输入**：整个 OpenAPI 规范里 `png`/`jpeg`/`vision`/`multimodal`/`base64`
-  出现 **0 次**；上传只有 CSV/JSON（`/artifacts/upload`、`/uploads/request`）。
-  带图的请求会**明确报 `images_not_supported`**，而不是静默丢图给一个自信的胡答。
-- **不支持多模态**：只吃文本。
-- **没有真正的多轮记忆**：每轮都是新任务，网关只把历史折成一段上下文前置（尾部截断）。
-- **首字节慢**：20~60 秒起步（`-max` 档更久）。任何前置网关的上游超时都要调到 300 秒以上。
-
-## 配置
-
-```jsonc
 {
-  "listen": { "host": "127.0.0.1", "port": 7868 },
-  "api_key": "",            // 客户端 Bearer；空 = 不鉴权（仅环回允许）
-  "admin_password": "",     // 面板密码；空 = 不鉴权（仅环回允许）
-  "data_dir": "./data",     // keys.json 等
-  "upstream": { "timeout_seconds": 120 },
-  "pool": { "hard_cooldown": "12h", "soft_cooldown": "60s", "max_rotate": 3 },
-  "prompts": {},
-  "mcp": { "enabled": true, "path": "/mcp" }
+  "mcpServers": {
+    "futuresearch": { "url": "http://127.0.0.1:7868/mcp" }
+  }
 }
 ```
 
-环境变量覆盖（容器部署用）：`FSGW_LISTEN_HOST` / `FSGW_LISTEN_PORT` /
-`FSGW_API_KEY` / `FSGW_ADMIN_PASSWORD` / `FSGW_DATA_DIR`。
+具体配置字段以客户端支持的传输方式为准。需要本地进程模式时，使用 stdio；它只提供研究工具：
+
+```json
+{
+  "mcpServers": {
+    "futuresearch": {
+      "command": "/absolute/path/to/fsgw",
+      "args": ["--config", "/absolute/path/to/config.json", "--mcp-stdio"]
+    }
+  }
+}
+```
+
+**HTTP MCP 和 `/preview/` 当前没有沿用网关或面板鉴权，MCP 也不经过租户额度层。** 这些入口请用于本机；远程接入需要另外配置访问控制。
+
+<a id="models"></a>
+
+## 模型选择
+
+| 选择方式 | 示例 | 适合的场景 |
+| :--- | :--- | :--- |
+| **研究预设** | `agent-low` / `agent-medium` / `agent-high` | 由平台选择模型，控制研究投入 |
+| **多方向研究** | `multi-agent-low` / `multi-agent-medium` / `multi-agent-high` | 并行研究后综合结果 |
+| **概率预测** | `forecast` | 二值问题的概率与理由 |
+| **家族 + 档位** | `claude-fable-5` + `reasoning_effort: max` | 在客户端里单独选择推理档位 |
+| **完整模型名** | `claude-fable-5-max` | 档位写进名称，适合经过其他网关转发 |
+
+上游目录包含 **143 个完整模型档位**，网关同时提供 **35 个家族入口**与 **7 个研究预设**。这些分类有名称重叠，不能简单相加当作不同模型数。
+
+经过会重建请求体的第三方网关时，建议使用完整模型名，避免 `reasoning_effort` 字段被丢弃。
+
+## 使用细节
+
+<details>
+<summary><strong>等待、流式回答与失败处理</strong></summary>
+
+上游先执行任务，网关再读取结果。等待期把任务进度作为 `reasoning_content` 发送，约 45 秒一次，让客户端可以看到进度并保持连接；这不是模型逐字生成的思考内容。
+
+失败时发送 `error`，不追加表示正常完成的 `[DONE]`。研究可能耗时较长，前置网关和客户端需要留出足够等待时间。
+
+</details>
+
+<details>
+<summary><strong>账号选择、冷却与额度计算</strong></summary>
+
+账号池优先复用上次成功的账号，随后倾向于选择已知余额较高的账号。余额不足默认冷却 12 小时，部分临时异常默认冷却 60 秒；账号冷却和同一请求的重试是不同机制。
+
+租户层支持额度、并发和档位限制，按网关固定估算扣减，失败请求也会扣减。返回的 token `usage` 同样是估算值，适合观察相对用量；实际消费请查看 FutureSearch 账单。
+
+</details>
+
+<details>
+<summary><strong>全局与指定模型的前置指令</strong></summary>
+
+在面板里设置，或在 `config.json` 中填写：
+
+```json
+{
+  "prompts": {
+    "*": "用中文回答，先给结论，再列依据。",
+    "agent-high": ""
+  }
+}
+```
+
+`*` 用作默认指令，指定模型覆盖默认值，空字符串表示该模型不注入指令。指令会拼接到上游任务文本的前面，不保证一定优先于上游自身规则。
+
+</details>
+
+<details>
+<summary><strong>本地文件 MCP 与 HTML 预览</strong></summary>
+
+研究入口和本地工具分别挂载：
+
+| 入口 | 工具 | 是否访问本地文件 |
+| :--- | :--- | :--- |
+| `/mcp` | `research` / `forecast` / `models` | 否 |
+| `/mcp/local` | `list_dir` / `read_file` / `search`，以及可选的写入和执行工具 | 是 |
+
+本地工具默认关闭，启用时需填写允许访问的根目录。写入与执行权限分别控制，修改后重启程序：
+
+```json
+{
+  "localfs": {
+    "enabled": true,
+    "root": "/absolute/path/to/project",
+    "allow_write": false,
+    "allow_exec": false,
+    "max_read_kb": 256,
+    "max_out_kb": 64,
+    "timeout_sec": 30
+  }
+}
+```
+
+启用后，将 `http://127.0.0.1:7868/mcp/local` 作为第二个 MCP 服务添加到客户端。文件路径会校验根目录与符号链接；命令按参数执行，不自动启动 shell，并有时间和输出上限。
+
+预览目录由 `preview.dir` 指定，默认是 `data/preview`。HTML 文件放进去后，可在 `/preview/` 打开。上游研究模型不会直接调用本地工具，需要客户端负责协调。
+
+</details>
+
+<a id="configuration"></a>
+
+## 配置说明
+
+默认配置文件为当前目录的 `config.json`，也可以用 `--config /path/to/config.json` 指定。
+
+| 环境变量 | 对应配置 | 用途 |
+| :--- | :--- | :--- |
+| `FSGW_LISTEN_HOST` | `listen.host` | 监听地址，默认 `127.0.0.1` |
+| `FSGW_LISTEN_PORT` | `listen.port` | 端口，默认 `7868` |
+| `FSGW_API_KEY` | `api_key` | OpenAI 接口的访问 Key |
+| `FSGW_ADMIN_PASSWORD` | `admin_password` | 面板密码 |
+| `FSGW_DATA_DIR` | `data_dir` | 账号与租户数据目录 |
+
+提示词、密码和部分运行参数可以在面板调整。监听地址、MCP、本地文件工具和预览路由等启动时配置，变更后需重启。使用环境变量时，重启会再次应用它们。
+
+仓库内的 Compose 文件需先补齐两项密码，并确保挂载目录可写，再启动；可参考上面的 Docker 命令。`config.json` 和数据目录包含私人配置，请自行保管。
+
+## 当前支持范围
+
+| 项目 | 说明 |
+| :--- | :--- |
+| 输入 | 纯文本；图片请求会明确报错 |
+| 工具调用 | 上游没有工具回调，研究模型不能直接调用本地工具 |
+| 多轮对话 | 每轮创建新任务，历史折成截断后的上下文 |
+| 用量统计 | token 与租户扣款均为估算，不用于核对平台真实账单 |
+| Windows | 提供构建产物；命令执行时 `.cmd` 等脚本需要显式指定解释器 |
 
 ## 开发
 
 ```bash
-make build            # 本地构建
-go test ./...         # 单元测试（协议翻译 / 档位 / 收尾语义 / 错误分类）
-
-# 面板冒烟（需要 playwright）：会开一个真浏览器断言登录框不可见、页签都能渲染
-pip install playwright && playwright install chromium
-python3 tools/panel-smoke.py http://127.0.0.1:7868
+make build
+go test ./...
 ```
 
-> 面板那个「登录框永远显示」的 bug 是纯 CSS 的（`.mask` 与 `.hidden` 同为单类选择器、
-> `.mask` 写在后面 → `display:flex` 胜出），Go 单测和 curl 都看不出来 ——
-> 所以留了这个真浏览器冒烟脚本。
+仓库另有 `tools/panel-smoke.py`，用于检查面板页面；需要安装 Playwright。CI 包含格式、静态和并发测试，以及 Linux / macOS / Windows × amd64 / arm64 构建；版本标签触发发布和双架构 Docker 镜像推送。
 
-## 免责声明
+## 许可与项目说明
 
-本项目是对 FutureSearch 公开 API 的**非官方封装**，与 FutureSearch 无关。
-请遵守上游服务条款与所在地区法律；账号封禁、服务中断等风险由使用者自负。
-本项目只做「协议翻译 + 号池」，不提供、也不代管任何账号或额度。
+[MIT License](LICENSE)。本项目是 FutureSearch 公开 API 的非官方适配，与 FutureSearch 无隶属关系。使用者自行提供账号和 API Key，上游服务条款、模型权限及收费规则以官方为准。
+
+<p align="center"><a href="#quick-start">开始使用</a> · <a href="https://github.com/hey345437-boop/futuresearch-gateway/issues">反馈问题</a> · <a href="README.en.md">English</a></p>

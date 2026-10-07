@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="480" viewBox="0 0 1600 480" role="img" aria-labelledby="cover-title cover-description">
+  <title id="cover-title">FutureSearch Gateway</title>
+  <desc id="cover-description">Claude. GPT. Gemini. One gateway. A client connects to the gateway, which connects to FutureSearch.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1600" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAFAF3"/>
+      <stop offset="1" stop-color="#ECF5ED"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M2 1 7 5 2 9" fill="none" stroke="#7B9A85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="480" rx="32" fill="url(#background)"/>
+  <path d="M1260 0H1568Q1600 0 1600 32V232C1485 226 1425 152 1378 99 1340 55 1300 27 1260 0Z" fill="#DDECE0" opacity=".55"/>
+  <path d="M1442 0H1568Q1600 0 1600 32V124C1542 116 1498 67 1442 0Z" fill="#CFE3D3" opacity=".5"/>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="100" y="165" fill="#173F2C" font-size="72" font-weight="700" letter-spacing="-2.8">FutureSearch Gateway</text>
+    <text x="104" y="225" fill="#587462" font-size="30" font-weight="400" letter-spacing=".1">Claude. GPT. Gemini. One gateway.</text>
+
+    <g transform="translate(1420 91)" fill="none" stroke="#2D6747" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="80" height="80" rx="22" fill="#F7FBF5" stroke="#BCD7C2" stroke-width="2"/>
+      <path d="M23 28H46Q57 28 57 39V51M23 51H34Q45 51 45 40V28"/>
+      <circle cx="23" cy="28" r="5" fill="#2D6747" stroke="none"/>
+      <circle cx="23" cy="51" r="5" fill="#2D6747" stroke="none"/>
+      <circle cx="57" cy="51" r="5" fill="#2D6747" stroke="none"/>
+    </g>
+
+    <g>
+      <rect x="100" y="306" width="330" height="100" rx="22" fill="#FFFFFF" fill-opacity=".7" stroke="#D7E3D6" stroke-width="2"/>
+      <rect x="620" y="306" width="360" height="100" rx="22" fill="#20573A"/>
+      <rect x="1170" y="306" width="330" height="100" rx="22" fill="#FFFFFF" fill-opacity=".7" stroke="#D7E3D6" stroke-width="2"/>
+
+      <g transform="translate(139 337)" fill="none" stroke="#65856C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="38" height="27" rx="5"/>
+        <path d="M12 27V36M26 27V36M8 36H30"/>
+      </g>
+      <text x="201" y="366" fill="#31503B" font-size="29" font-weight="600">Client</text>
+
+      <g transform="translate(663 337)" fill="none" stroke="#DBEFDC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="0" y="0" width="38" height="15" rx="5"/>
+        <rect x="0" y="23" width="38" height="15" rx="5"/>
+        <circle cx="8" cy="7.5" r="1.5" fill="#DBEFDC" stroke="none"/>
+        <circle cx="8" cy="30.5" r="1.5" fill="#DBEFDC" stroke="none"/>
+        <path d="M17 7.5H29M17 30.5H29"/>
+      </g>
+      <text x="724" y="366" fill="#F4FAEF" font-size="29" font-weight="600">Gateway</text>
+
+      <g transform="translate(1208 337)" fill="none" stroke="#65856C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="15" cy="15" r="13"/>
+        <path d="M25 25 37 37M10 15H20M15 10V20"/>
+      </g>
+      <text x="1268" y="366" fill="#31503B" font-size="29" font-weight="600">FutureSearch</text>
+    </g>
+  </g>
+
+  <path d="M459 356H588" fill="none" stroke="#7B9A85" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M1009 356H1138" fill="none" stroke="#7B9A85" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrow)"/>
+</svg>

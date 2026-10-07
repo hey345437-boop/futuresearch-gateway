@@ -21,6 +21,7 @@ type asyncTask struct {
 	Key     string // 上游 key（查状态/取结果/取消都要用）
 	UID     string
 	Model   string
+	Enum    string // 解析后的上游 llm 枚举（可核对「我指定的模型到底跑没跑」）
 	Prompt  string
 	Started time.Time
 }
@@ -107,8 +108,11 @@ func (s *Server) SubmitAsync(model, prompt, effort string) (string, error) {
 			s.penalize(uid, kind, string(raw))
 			return "", fmt.Errorf("上游返回 %d：%s", status, snippet(string(raw)))
 		}
-		s.tasks.put(&asyncTask{ID: id, Key: e.Key.Key, UID: uid, Model: model, Prompt: prompt, Started: time.Now()})
-		s.appendLog(fmt.Sprintf("异步任务已投 %s（模型 %s，账号 %s）", id[:8], model, short(uid)))
+		s.tasks.put(&asyncTask{ID: id, Key: e.Key.Key, UID: uid, Model: model, Enum: prep.Spec.LLM, Prompt: prompt, Started: time.Now()})
+		s.appendLog(fmt.Sprintf("异步任务已投 %s（模型 %s → 上游枚举 %s，账号 %s）",
+			id[:8], model, prep.Spec.LLM, short(uid)))
+		// 异步任务也要进用量流水 —— 否则面板上看不到它们
+		s.recordUsage(model, uid, 0, true, "异步投递（结果另取）", 0)
 		return id, nil
 	}
 	if lastErr == nil {
@@ -141,7 +145,11 @@ func (s *Server) AsyncStatus(id string) (string, error) {
 	}
 	waited := time.Since(t.Started).Round(time.Second)
 	var b strings.Builder
-	fmt.Fprintf(&b, "task_id: %s\n状态: %s\n模型: %s\n已等待: %s\n", snap.TaskID, snap.Status, t.Model, waited)
+	fmt.Fprintf(&b, "task_id: %s\n状态: %s\n模型: %s", snap.TaskID, snap.Status, t.Model)
+	if t.Enum != "" {
+		fmt.Fprintf(&b, "（上游枚举 %s）", t.Enum)
+	}
+	fmt.Fprintf(&b, "\n已等待: %s\n", waited)
 	if snap.Label != "" {
 		fmt.Fprintf(&b, "当前步骤: %s\n", snap.Label)
 	}

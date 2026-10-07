@@ -375,3 +375,40 @@ func TestImagesRejectedExplicitly(t *testing.T) {
 		t.Fatalf("错误码应说明是图片不支持：%s", raw)
 	}
 }
+
+// TestUpstreamProxyModes 代理三档：默认直连 / env / 显式。
+//
+// 默认必须是**直连**（Transport.Proxy 留 nil）—— 很多环境里 HTTPS_PROXY 是给别的东西
+// 设的，网关悄悄跟着走会引入难排查的故障。想走就显式写 "env"。
+func TestUpstreamProxyModes(t *testing.T) {
+	direct := New()
+	tr, ok := direct.HTTP.Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("Transport 类型不对")
+	}
+	if tr.Proxy != nil {
+		t.Fatal("默认必须是直连（Proxy 为 nil）")
+	}
+
+	env := NewWithProxy("env")
+	trEnv := env.HTTP.Transport.(*http.Transport)
+	if trEnv.Proxy == nil {
+		t.Fatal(`"env" 应该启用 ProxyFromEnvironment`)
+	}
+
+	explicit := NewWithProxy("http://127.0.0.1:7890")
+	trExp := explicit.HTTP.Transport.(*http.Transport)
+	if trExp.Proxy == nil {
+		t.Fatal("显式代理应该生效")
+	}
+	req, _ := http.NewRequest("GET", "https://futuresearch.ai/api/v0/health", nil)
+	u, err := trExp.Proxy(req)
+	if err != nil || u == nil || u.Host != "127.0.0.1:7890" {
+		t.Fatalf("显式代理解析不对：%v %v", u, err)
+	}
+
+	// 非法值退回直连，不 panic
+	if tr := NewWithProxy(":::not a url").HTTP.Transport.(*http.Transport); tr.Proxy != nil {
+		t.Fatal("非法代理串应该退回直连")
+	}
+}

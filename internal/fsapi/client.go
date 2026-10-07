@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -32,8 +33,21 @@ type Client struct {
 	prompts   map[string]string
 }
 
-// New 生产默认客户端。
-func New() *Client {
+// New 生产默认客户端（直连上游）。
+func New() *Client { return NewWithProxy("") }
+
+// NewWithProxy 生产客户端，可指定上游代理。
+//
+// proxySpec 三种取值：
+//
+//	""      直连（**默认**）—— futuresearch.ai 在多数网络下直连可达
+//	"env"   读 HTTPS_PROXY / HTTP_PROXY / NO_PROXY
+//	"http://host:port"  显式指定
+//
+// 为什么默认是直连而不是 ProxyFromEnvironment：很多环境里 HTTPS_PROXY 是为别的东西设的
+// （比如本地代理软件给浏览器用），网关悄悄跟着走会引入难以排查的故障。
+// 想走就显式写 "env"。
+func NewWithProxy(proxySpec string) *Client {
 	dialer := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 15 * time.Second}
 	tr := &http.Transport{
 		DialContext:         dialer.DialContext,
@@ -41,6 +55,16 @@ func New() *Client {
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 20,
 		IdleConnTimeout:     30 * time.Second,
+	}
+	switch spec := strings.TrimSpace(proxySpec); {
+	case spec == "":
+		// 直连：Transport.Proxy 留 nil（注意这**不等于** ProxyFromEnvironment）
+	case strings.EqualFold(spec, "env"):
+		tr.Proxy = http.ProxyFromEnvironment
+	default:
+		if u, err := url.Parse(spec); err == nil && u.Host != "" {
+			tr.Proxy = http.ProxyURL(u)
+		}
 	}
 	return &Client{
 		HTTP:       &http.Client{Timeout: requestTimeout, Transport: tr},

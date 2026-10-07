@@ -244,7 +244,25 @@ for hands (read/write/run) and a research model for thinking, both behind this g
 
 ## Configuration
 
-The gateway reads `config.json` by default. Use `--config /path/to/config.json` to select another file. This excerpt shows the main settings:
+The gateway reads `config.json` by default. Use `--config /path/to/config.json` to select another file.
+
+### Upstream proxy
+
+**Direct by default** (`upstream.proxy` empty). `futuresearch.ai` is directly reachable on most
+networks; if yours requires a proxy, opt in explicitly:
+
+| `upstream.proxy` | Meaning |
+| :--- | :--- |
+| `""` (default) | Direct — **ignores** `HTTPS_PROXY` |
+| `"env"` | Honour `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` |
+| `"http://127.0.0.1:7890"` | Explicit proxy URL |
+
+Deliberately *not* following the environment by default: on many machines `HTTPS_PROXY` is set
+for a browser or something else, and silently routing through it produces hard-to-diagnose
+failures ("my machine has internet but the gateway can't reach the upstream").
+Environment variable: `FSGW_UPSTREAM_PROXY`.
+
+This excerpt shows the main settings:
 
 ```json
 {

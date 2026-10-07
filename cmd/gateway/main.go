@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -56,7 +57,7 @@ func main() {
 		log.Printf("写回配置失败（不影响运行）：%v", err)
 	}
 
-	up := fsapi.New()
+	up := fsapi.NewWithProxy(cfg.Upstream.Proxy)
 	up.HTTP.Timeout = time.Duration(cfg.Upstream.TimeoutSeconds) * time.Second
 	up.SetPrompts(cfg.Prompts)
 
@@ -134,7 +135,13 @@ func main() {
 	if localFS != nil {
 		fmt.Printf("  MCP(本地项目) http://%s%s  →  root=%s\n", cfg.Listen.Addr(), cfg.LocalFS.Path, localFS.Root())
 	}
-	fmt.Printf("  数据目录      %s\n\n", cfg.DataDir)
+	fmt.Printf("  数据目录      %s\n", cfg.DataDir)
+	if p := strings.TrimSpace(cfg.Upstream.Proxy); p != "" {
+		fmt.Printf("  上游代理      %s\n", p)
+	} else {
+		fmt.Printf("  上游代理      直连\n")
+	}
+	fmt.Println()
 
 	go func() {
 		if err := hs.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {

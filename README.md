@@ -321,6 +321,29 @@ curl http://127.0.0.1:7868/v1/chat/completions \
 | `FSGW_API_KEY` | `api_key` | OpenAI 接口的访问 Key |
 | `FSGW_ADMIN_PASSWORD` | `admin_password` | 面板密码 |
 | `FSGW_DATA_DIR` | `data_dir` | 账号与租户数据目录 |
+| `FSGW_UPSTREAM_PROXY` | `upstream.proxy` | 访问上游的代理，留空为直连 |
+
+### 访问上游走不走代理
+
+**默认直连**（`upstream.proxy` 留空）。futuresearch.ai 在多数网络下直连可达；
+如果你的环境必须经代理才能访问，显式打开：
+
+```json
+{ "upstream": { "proxy": "env" } }
+```
+
+| `upstream.proxy` 取值 | 含义 |
+| :--- | :--- |
+| `""`（默认） | 直连，**忽略** `HTTPS_PROXY` 环境变量 |
+| `"env"` | 读 `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` |
+| `"http://127.0.0.1:7890"` | 显式指定代理地址 |
+
+刻意**不**默认跟随环境变量：很多机器上的 `HTTPS_PROXY` 是给浏览器或别的东西设的，
+网关悄悄跟着走会引出很难排查的故障（表现是「本地能上网但网关连不上上游」）。
+要跟随就写 `"env"`。
+
+> 提示：造号流程里那个「分流代理」（cloudflare 直连、supabase 走代理）是**造号脚本**的需求，
+> 跟网关无关 —— 网关只访问 futuresearch.ai 一个域，单个开关就够。
 
 提示词、密码和部分运行参数可以在面板调整。监听地址、MCP、本地文件工具和预览路由等启动时配置，变更后需重启。使用环境变量时，重启会再次应用它们。
 

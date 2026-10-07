@@ -535,6 +535,7 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 			"allow_write": s.cfg.LocalFS.AllowWrite, "allow_exec": s.cfg.LocalFS.AllowExec,
 			"path": s.cfg.LocalFS.Path,
 		},
+		"upstream_proxy":  s.cfg.Upstream.Proxy,
 		"hard_cooldown":   s.cfg.Pool.HardCooldown,
 		"soft_cooldown":   s.cfg.Pool.SoftCooldown,
 		"tenants_enabled": s.tenants != nil && s.tenants.Enabled(),

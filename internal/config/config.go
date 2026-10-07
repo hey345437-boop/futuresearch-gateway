@@ -45,6 +45,11 @@ type Config struct {
 
 	Upstream struct {
 		TimeoutSeconds int `json:"timeout_seconds"` // 单次 HTTP 调用上限，默认 120
+		// Proxy 访问上游走不走代理：
+		//   ""    直连（默认）—— futuresearch.ai 在多数网络下直连可达
+		//   "env" 读 HTTPS_PROXY / HTTP_PROXY / NO_PROXY 环境变量
+		//   "http://127.0.0.1:7890"  显式指定
+		Proxy string `json:"proxy"`
 	} `json:"upstream"`
 
 	Pool struct {
@@ -153,6 +158,9 @@ func (c *Config) ApplyEnv() {
 	}
 	if v := os.Getenv("FSGW_DATA_DIR"); v != "" {
 		c.DataDir = v
+	}
+	if v, ok := os.LookupEnv("FSGW_UPSTREAM_PROXY"); ok {
+		c.Upstream.Proxy = strings.TrimSpace(v)
 	}
 	c.Normalize()
 }

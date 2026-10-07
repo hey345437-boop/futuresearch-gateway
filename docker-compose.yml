@@ -1,0 +1,14 @@
+services:
+  fsgw:
+    build: .
+    # 或直接用镜像：image: ghcr.io/hey345437-boop/futuresearch-gateway:latest
+    container_name: fsgw
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7868:7868"
+    volumes:
+      - ./data:/data
+    # 对外暴露（把上面的 127.0.0.1 改成 0.0.0.0）时，这两个必须设 —— 否则启动拒绝。
+    # 首次启动会自动生成 config.json，然后用面板改这两项即可。
+    environment:
+      - TZ=Asia/Shanghai

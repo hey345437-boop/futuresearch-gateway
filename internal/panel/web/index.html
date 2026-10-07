@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FutureSearch Gateway</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#0b0d12; --side:#11141b; --card:#161a23; --card2:#1c212c; --line:#252b38;
+  --text:#e8ebf2; --dim:#8b93a7; --dim2:#6b7286;
+  --pri:#4f7cff; --pri2:#3d63d8; --ok:#31b57a; --warn:#e0a13a; --bad:#e5544f;
+  --r:12px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"PingFang SC",sans-serif}
+a{color:var(--pri);text-decoration:none}
+.layout{display:flex;min-height:100vh}
+aside{width:208px;flex:none;background:var(--side);border-right:1px solid var(--line);
+  padding:18px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:9px;padding:2px 8px 16px;font-weight:600;font-size:14.5px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px #31b57a22}
+nav a{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;color:var(--dim);
+  font-size:13.5px;margin-bottom:2px;cursor:pointer}
+nav a:hover{background:#ffffff08;color:var(--text)}
+nav a.on{background:#4f7cff1f;color:#bcd0ff}
+nav a .ic{width:16px;text-align:center;opacity:.85}
+.sidefoot{margin-top:auto;padding:10px 8px;color:var(--dim2);font-size:11.5px;line-height:1.7}
+main{flex:1;min-width:0;padding:26px 30px 60px;max-width:1080px}
+h1{font-size:20px;margin:0 0 4px;font-weight:600}
+h2{font-size:14.5px;margin:0 0 12px;font-weight:600}
+.sub{color:var(--dim);font-size:13px;margin:0 0 20px}
+section.page{display:none}
+section.page.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.stat .k{color:var(--dim);font-size:12px;margin-bottom:6px}
+.stat .v{font-size:22px;font-weight:600;letter-spacing:-.02em}
+.stat .v small{font-size:13px;color:var(--dim);font-weight:400}
+input,textarea,select,button{font:inherit;color:var(--text);background:var(--card2);
+  border:1px solid var(--line);border-radius:9px;padding:9px 12px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--pri)}
+input::placeholder,textarea::placeholder{color:var(--dim2)}
+button{cursor:pointer;transition:.12s}
+button:hover{border-color:#3a4356}
+button.pri{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:500}
+button.pri:hover{background:var(--pri2);border-color:var(--pri2)}
+button.sm{padding:5px 10px;font-size:12.5px;border-radius:8px}
+button.ghost{background:transparent}
+button.danger{color:var(--bad);border-color:#43272a}
+button.danger:hover{background:#e5544f14}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.row.tight{margin-bottom:9px}
+.grow{flex:1 1 auto;min-width:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--dim);font-weight:500;font-size:12px}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;border:1px solid var(--line);color:var(--dim)}
+.tag.ok{color:var(--ok);border-color:#1f4a37;background:#31b57a12}
+.tag.warn{color:var(--warn);border-color:#4a3a1f;background:#e0a13a12}
+.tag.bad{color:var(--bad);border-color:#4a2a2a;background:#e5544f12}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+pre{background:#0e1117;border:1px solid var(--line);border-radius:10px;padding:13px;
+  overflow:auto;max-height:340px;font-size:12.5px;margin:0;line-height:1.65}
+.hint{color:var(--dim);font-size:12.5px;margin:7px 0}
+.hint.inline{margin:0}
+.err{color:var(--bad);font-size:12.5px;min-height:17px}
+.ok{color:var(--ok);font-size:12.5px;min-height:17px}
+code{background:var(--card2);padding:1.5px 6px;border-radius:5px;font-size:12.5px}
+.mask{position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:30}
+.mask.hidden{display:none}
+.mask .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;width:min(400px,92vw)}
+.hidden{display:none}
+.steps{counter-reset:s;margin:0;padding:0;list-style:none}
+.step{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+.step:last-child{border-bottom:none;padding-bottom:0}
+.step .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--pri);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.step .body{flex:1;min-width:0}
+.step h3{font-size:13.5px;margin:2px 0 8px;font-weight:600}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.tabs button{border-radius:999px;padding:6px 13px;font-size:13px;background:transparent;color:var(--dim)}
+.tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff}
+.empty{color:var(--dim);text-align:center;padding:26px 0;font-size:13px}
+.copy{position:relative}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:8px 14px;font-size:13px}
+.kv .k{color:var(--dim)}
+@media(max-width:760px){
+  .layout{flex-direction:column}
+  aside{width:auto;height:auto;position:static;flex-direction:row;overflow-x:auto;padding:10px}
+  .brand,.sidefoot{display:none}
+  nav{display:flex;gap:4px}
+  nav a{white-space:nowrap;margin:0}
+  main{padding:18px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand"><span class="dot"></span>FutureSearch</div>
+    <nav>
+      <a data-p="home" class="on"><span class="ic">◈</span>概览</a>
+      <a data-p="setup"><span class="ic">⚡</span>接入</a>
+      <a data-p="acct"><span class="ic">☰</span>账号</a>
+      <a data-p="tenant"><span class="ic">♺</span>租户</a>
+      <a data-p="models"><span class="ic">◇</span>模型</a>
+      <a data-p="preview"><span class="ic">▣</span>预览</a>
+      <a data-p="set"><span class="ic">⚙</span>设置</a>
+    </nav>
+    <div class="sidefoot">
+      v<span id="ver">–</span> · build <span id="build">–</span><br>
+      <span id="addr">–</span>
+    </div>
+  </aside>
+
+  <main>
+    <!-- 概览 -->
+    <section class="page on" id="p-home">
+      <h1>概览</h1>
+      <p class="sub">把 FutureSearch 的异步研究 API 变成任何客户端都能直接用的 OpenAI 端点。</p>
+      <div class="cards">
+        <div class="stat"><div class="k">可用账号</div><div class="v"><span id="sAcct">0</span> <small>个</small></div></div>
+        <div class="stat"><div class="k">余额合计</div><div class="v" id="sBal">–</div></div>
+        <div class="stat"><div class="k">可用模型</div><div class="v"><span id="sModel">0</span> <small>个</small></div></div>
+        <div class="stat"><div class="k">累计调用</div><div class="v" id="sReq">0</div></div>
+      </div>
+      <div class="card" id="homeCta"></div>
+      <div class="card">
+        <h2>账号状态</h2>
+        <table><thead><tr><th>账号</th><th>余额</th><th>状态</th></tr></thead><tbody id="homeAcct"></tbody></table>
+      </div>
+      <div class="card">
+        <h2>最近调用</h2>
+        <table><thead><tr><th>时间</th><th>模型</th><th>耗时</th><th>结果</th></tr></thead><tbody id="homeUsage"></tbody></table>
+      </div>
+    </section>
+
+    <!-- 接入 -->
+    <section class="page" id="p-setup">
+      <h1>接入</h1>
+      <p class="sub">三步。第一步有号就行，第二步选客户端，第三步复制配置。</p>
+
+      <div class="card">
+        <ol class="steps">
+          <li class="step">
+            <div class="n">1</div>
+            <div class="body">
+              <h3>加一个 FutureSearch 账号</h3>
+              <div class="row">
+                <input id="newKey" class="grow mono" spellcheck="false" placeholder="粘一个 sk-cho-… 的 API key">
+                <button class="pri" id="btnAdd">验证并接入</button>
+              </div>
+              <div class="err" id="addErr"></div>
+              <div class="hint">已经在用了？跳到 <a data-goto="acct">账号</a> 看池子。</div>
+            </div>
+          </li>
+
+          <li class="step">
+            <div class="n">2</div>
+            <div class="body">
+              <h3>选你要接的客户端</h3>
+              <div class="tabs" id="clientTabs">
+                <button data-c="dsh" class="on">dsh</button>
+                <button data-c="claude">Claude Desktop</button>
+                <button data-c="cursor">Cursor / 其它 MCP</button>
+                <button data-c="curl">curl</button>
+              </div>
+              <div class="hint" id="clientHint"></div>
+            </div>
+          </li>
+
+          <li class="step">
+            <div class="n">3</div>
+            <div class="body">
+              <h3>复制配置，或者让我直接写进去</h3>
+              <div class="row" style="margin-bottom:10px">
+                <button class="pri" id="btnCopy">复制配置</button>
+                <button id="btnWriteDsh">直接写入本机 dsh 配置</button>
+                <span class="hint inline" id="writeMsg"></span>
+              </div>
+              <pre id="clientCfg"></pre>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2>本地项目工具（MCP）— 让 AI 真的读写你的项目</h2>
+        <div class="hint">上面那组 MCP 只能<b>研究</b>；这一组才是<b>本地手脚</b>：<code>list_dir</code> / <code>read_file</code> / <code>search</code>，开了写还有 <code>write_file</code> / <code>mkdir</code>，开了执行还有 <code>run_command</code>（不走 shell）。</div>
+        <div class="row" style="margin:12px 0">
+          <label class="hint inline"><input id="lfOn" type="checkbox" style="vertical-align:-2px"> 启用</label>
+          <input id="lfRoot" class="grow mono" placeholder="允许操作的根目录，如 /Users/you/projects">
+          <label class="hint inline"><input id="lfWrite" type="checkbox" style="vertical-align:-2px"> 允许写</label>
+          <label class="hint inline"><input id="lfExec" type="checkbox" style="vertical-align:-2px"> 允许执行命令</label>
+          <button class="pri" id="btnLfSave">保存</button>
+          <span class="ok" id="lfMsg"></span>
+        </div>
+        <div class="hint">所有路径都会被限制在 root 之内（含软链逃逸检查）。改了这几项<b>要重启进程</b>才生效。</div>
+        <div class="row" style="margin-top:10px"><button id="btnLfCopy">复制 MCP 配置</button></div>
+        <pre id="lfCfg" style="margin-top:10px"></pre>
+      </div>
+
+      <div class="card">
+        <h2>MCP 工具（给会说 MCP 的 AI 用）</h2>
+        <div class="hint">本网关把 FutureSearch 暴露成三个 MCP 工具：<code>research</code> / <code>forecast</code> / <code>models</code>。任何 MCP 客户端都能挂。</div>
+        <pre id="mcpCfg"></pre>
+        <div class="hint"><b>注意</b>：这三个工具只做「研究」，<b>不能读写你的本地文件</b>。要让它操作本地项目，见 <a data-goto="preview">预览</a> 页的说明。</div>
+      </div>
+    </section>
+
+    <!-- 账号 -->
+    <section class="page" id="p-acct">
+      <h1>账号</h1>
+      <p class="sub">号池：多个账号自动轮询，余额不足/限流会自动冷却换号。</p>
+      <div class="card">
+        <div class="row tight">
+          <input id="newKey2" class="grow mono" spellcheck="false" placeholder="粘一个 sk-cho-… 添加">
+          <button class="pri" id="btnAdd2">添加</button>
+          <button id="btnRefreshAll">刷新全部余额</button>
+        </div>
+        <div class="err" id="addErr2"></div>
+      </div>
+      <div class="card">
+        <table><thead><tr><th>账号</th><th>Key</th><th>余额</th><th>状态</th><th>请求</th><th></th></tr></thead><tbody id="acctBody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- 租户 -->
+    <section class="page" id="p-tenant">
+      <h1>租户</h1>
+      <p class="sub">给别人发 key。额度按<b>美元</b>算 —— 上游按任务计费，这是唯一准确的口径。</p>
+      <div class="card">
+        <div class="row tight">
+          <input id="tName" style="width:150px" placeholder="给谁（名字）">
+          <input id="tQuota" style="width:130px" type="number" step="0.5" min="0" placeholder="额度 $（0=不限）">
+          <select id="tEffort">
+            <option value="low">档位上限 low</option>
+            <option value="medium" selected>档位上限 medium</option>
+            <option value="high">档位上限 high</option>
+          </select>
+          <input id="tConc" style="width:110px" type="number" min="1" value="2" placeholder="并发">
+          <button class="pri" id="btnTenantAdd">生成 key</button>
+        </div>
+        <div class="err" id="tenantErr"></div>
+        <div id="newKeyBox" class="hidden" style="margin-top:12px">
+          <div class="hint inline">新 key（只显示这一次）：</div>
+          <div class="row" style="margin-top:6px"><input id="newKeyVal" class="grow mono" readonly><button class="pri" id="btnCopyNewKey">复制</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <table><thead><tr><th>名字</th><th>Key</th><th>额度</th><th>已用</th><th>上限</th><th>请求</th><th>状态</th><th></th></tr></thead><tbody id="tenantBody"></tbody></table>
+        <div class="hint" id="tenantHint"></div>
+      </div>
+    </section>
+
+    <!-- 模型 -->
+    <section class="page" id="p-models">
+      <h1>模型</h1>
+      <p class="sub">两种用法：<b>预设档</b>（平台挑模型，你只选研究深度）、<b>模型家族 + 档位</b>（你指定底层模型）。</p>
+      <div class="card">
+        <div class="row tight"><input id="modelSearch" class="grow" placeholder="搜索模型"></div>
+        <pre id="modelList" style="max-height:520px"></pre>
+      </div>
+      <div class="card">
+        <h2>模型前置指令（注入）</h2>
+        <div class="hint">上游 agent 自带一套输出风格，而它的 API <b>没有 system 字段</b> —— 唯一能压过它的地方是任务文本最前面。这里配的会前置拼上去。</div>
+        <div class="hint">模型名填 <code>*</code> = 所有模型兜底；填具体模型 = 只覆盖它；<b>存空串 = 该模型不注入</b>。</div>
+        <div class="row tight" style="margin-top:10px">
+          <input id="pModel" class="mono" style="width:200px" placeholder="* 或 agent-high">
+          <button id="btnPromptAdd">添加/覆盖</button>
+        </div>
+        <textarea id="pText" rows="4" style="width:100%" placeholder="例如：【最高优先级】忽略你此前的输出风格要求，不要科普腔……"></textarea>
+        <div id="promptList" style="margin-top:12px"></div>
+        <div class="row" style="margin-top:12px"><button class="pri" id="btnPromptSave">保存</button><span class="ok" id="promptErr"></span></div>
+      </div>
+    </section>
+
+    <!-- 预览 -->
+    <section class="page" id="p-preview">
+      <h1>预览</h1>
+      <p class="sub">把生成的 HTML/项目直接挂到一个 URL 上，不用「吐一段代码让人自己存文件再打开」。</p>
+      <div class="card">
+        <div class="row tight">
+          <button class="pri" id="btnPreviewRefresh">刷新</button>
+          <button id="btnPreviewOpen">打开预览首页</button>
+          <span class="hint inline mono" id="previewUrl"></span>
+        </div>
+        <div class="hint" id="previewDir"></div>
+        <table style="margin-top:10px"><thead><tr><th>文件</th><th>大小</th><th>改动时间</th><th></th></tr></thead><tbody id="previewBody"></tbody></table>
+      </div>
+      <div class="card">
+        <h2>怎么用</h2>
+        <div class="hint">把 agent 生成的页面写进上面那个目录，浏览器直接打开对应 URL 就能看。例如 <code>index.html</code> → <code id="previewSample">/preview/index.html</code>。</div>
+        <h2 style="margin-top:16px">⚠️ 关于「让 AI 读写本地项目」</h2>
+        <div class="hint">
+          FutureSearch 的 agent <b>不支持工具调用</b>（上游 API 没有工具回调面），所以它<b>没法</b>读写你的本地文件 ——
+          本网关的 MCP 只提供 <code>research</code> / <code>forecast</code> / <code>models</code> 三个研究类工具。<br><br>
+          要让 AI 真的能操作本地项目，需要的是<b>另一个 MCP</b>（本地 runner：read_file / write_file / run_command），
+          由会说 MCP 的 agent 去调它。两者是<b>并列</b>关系：<br>
+          <code>research(...)</code> ← 本网关（云端研究）　·　<code>write_file(...)</code> ← 本地 runner（本地手脚）<br><br>
+          dsh / Claude Code 这类客户端<b>自带</b>本地文件工具，所以「生成 HTML 直接预览」这条路是：
+          <b>agent 用自带工具写文件 → 写进本网关的预览目录 → 打开 URL</b>。
+        </div>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section class="page" id="p-set">
+      <h1>设置</h1>
+      <p class="sub">改完立即生效（除了监听地址，那个要重启）。</p>
+      <div class="card">
+        <div class="kv">
+          <div class="k">客户端 API Key</div><div><input id="sApiKey" class="mono" style="width:100%" placeholder="留空 = 不鉴权（仅环回监听时安全）"></div>
+          <div class="k">面板密码</div><div><input id="sAdmin" type="password" style="width:100%" placeholder="留空 = 免密直接打开（推荐）"></div>
+          <div class="k">硬冷却</div><div><input id="sHard" style="width:140px" placeholder="12h"></div>
+          <div class="k">软冷却</div><div><input id="sSoft" style="width:140px" placeholder="60s"></div>
+          <div class="k">MCP</div><div><label class="hint inline"><input id="sMcp" type="checkbox" style="vertical-align:-2px"> 在 <code id="mcpPath">/mcp</code> 暴露 research / forecast / models</label></div>
+          <div class="k">本地预览</div><div><label class="hint inline"><input id="sPreview" type="checkbox" style="vertical-align:-2px"> 把预览目录挂到 <code id="prevPath">/preview/</code></label></div>
+        </div>
+        <div class="row" style="margin-top:16px"><button class="pri" id="btnSaveSet">保存</button><span class="ok" id="setErr"></span></div>
+      </div>
+      <div class="card">
+        <h2>运行日志</h2>
+        <pre id="logs" style="max-height:280px"></pre>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="login" class="mask hidden"><div class="box">
+  <h2 style="margin-top:0">面板登录</h2>
+  <div class="row tight"><input id="pw" type="password" class="grow" placeholder="管理密码"></div>
+  <div class="err" id="loginErr"></div>
+  <div class="row" style="justify-content:flex-end">
+    <span class="hint inline" id="loginHint"></span>
+    <button class="sm" id="btnLoginRetry">重试</button>
+    <button class="pri" id="btnLogin">登录</button>
+  </div>
+</div></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = (c) => (c < 0 ? "不限" : "$" + (c / 100).toFixed(2));
+let state = null, promptDraft = {}, client = "dsh";
+
+async function api(path, body, method) {
+  const r = await fetch(path, {
+    method: method || (body === undefined ? "GET" : "POST"),
+    headers: body === undefined ? {} : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await r.text();
+  let data = null; try { data = JSON.parse(text); } catch {}
+  if (!r.ok) throw new Error((data && (data.error || data.message)) || r.status + " " + text.slice(0, 120));
+  return data;
+}
+function copy(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    if (!btn) return;
+    const old = btn.textContent; btn.textContent = "已复制 ✓";
+    setTimeout(() => (btn.textContent = old), 1300);
+  });
+}
+
+// ---------- 加载 ----------
+async function load() {
+  try {
+    state = await api("/api/state");
+  } catch (e) {
+    if (String(e.message).includes("登录") || String(e.message).includes("需要")) {
+      $("login").classList.remove("hidden");
+      if (!load._t) load._t = setInterval(async () => {
+        try { state = await api("/api/state"); clearInterval(load._t); load._t = null; $("login").classList.add("hidden"); await load(); } catch {}
+      }, 3000);
+      return;
+    }
+    throw e;
+  }
+  if (load._t) { clearInterval(load._t); load._t = null; }
+  $("login").classList.add("hidden");
+
+  $("ver").textContent = state.version;
+  $("build").textContent = state.build || "–";
+  $("addr").textContent = state.listen;
+  $("sAcct").textContent = state.accounts.length;
+  $("sBal").textContent = money(state.total_cents);
+  $("sModel").textContent = state.models.length;
+  $("sReq").textContent = state.requests;
+
+  renderHome(); renderAccounts(); renderTenants(); renderModels(); renderPrompts(); renderSetup(); renderLocalFS(); renderPreview(); renderSettings();
+  renderLogs();
+}
+
+function renderHome() {
+  const healthy = state.accounts.filter((a) => !a.disabled && !a.cooling).length;
+  $("homeCta").innerHTML = state.accounts.length === 0
+    ? `<h2>还没有账号 —— 三步接入</h2>
+       <div class="hint">粘一个 FutureSearch 的 API key，就能在 dsh / Claude / Cursor 里直接用。</div>
+       <div class="row" style="margin-top:12px">
+         <input id="ctaKey" class="grow mono" placeholder="sk-cho-…">
+         <button class="pri" id="ctaAdd">验证并接入</button>
+       </div><div class="err" id="ctaErr"></div>`
+    : `<h2>一切就绪</h2>
+       <div class="hint">${healthy}/${state.accounts.length} 个账号可用 · 余额 ${money(state.total_cents)} · 端点 <code>${location.origin}/v1</code></div>
+       <div class="row" style="margin-top:12px">
+         <button class="pri" data-goto="setup">去接入客户端</button>
+         <button data-goto="tenant">发一把 key 给别人</button>
+       </div>`;
+  const cta = $("ctaAdd");
+  if (cta) cta.onclick = async () => {
+    $("ctaErr").textContent = "";
+    try { await api("/api/accounts/add", { key: $("ctaKey").value.trim() }); await load(); }
+    catch (e) { $("ctaErr").textContent = e.message; }
+  };
+  $("homeAcct").innerHTML = state.accounts.map((a) => `
+    <tr><td>${esc(a.email || a.uid.slice(0, 8))}</td><td>${money(a.balance_cents)}</td><td>${statusTag(a)}</td></tr>`
+  ).join("") || `<tr><td colspan="3" class="empty">还没有账号</td></tr>`;
+  $("homeUsage").innerHTML = (state.usage || []).slice(0, 6).map((u) => `
+    <tr><td class="mono">${esc(u.time)}</td><td class="mono">${esc(u.model)}</td><td>${(u.duration_ms / 1000).toFixed(1)}s</td>
+    <td>${u.ok ? '<span class="tag ok">ok</span>' : '<span class="tag bad" title="' + esc(u.note) + '">失败</span>'}</td></tr>`
+  ).join("") || `<tr><td colspan="4" class="empty">还没有调用</td></tr>`;
+}
+
+const statusTag = (a) => a.disabled
+  ? `<span class="tag bad" title="${esc(a.reason)}">已停用</span>`
+  : a.cooling ? `<span class="tag warn" title="${esc(a.reason)}">冷却中 ${esc(a.cool_until)}</span>`
+  : `<span class="tag ok">可用</span>`;
+
+function renderAccounts() {
+  $("acctBody").innerHTML = state.accounts.map((a) => `
+    <tr>
+      <td>${esc(a.email || a.uid.slice(0, 8))}<div class="hint" style="margin:0">${esc(a.uid.slice(0, 8))}</div></td>
+      <td class="mono">${esc(a.key_masked)}</td>
+      <td>${money(a.balance_cents)}<div class="hint" style="margin:0">${esc(a.balance_at || "")}</div></td>
+      <td>${statusTag(a)}</td><td>${a.requests}</td>
+      <td style="white-space:nowrap">
+        <button class="sm" data-act="refresh" data-uid="${a.uid}">刷余额</button>
+        <button class="sm" data-act="toggle" data-uid="${a.uid}" data-disabled="${a.disabled}">${a.disabled ? "启用" : "停用"}</button>
+        <button class="sm danger" data-act="remove" data-uid="${a.uid}">删除</button>
+      </td></tr>`).join("") || `<tr><td colspan="6" class="empty">还没有账号 —— 去「接入」页粘一个 key</td></tr>`;
+  document.querySelectorAll("button[data-act]").forEach((b) => {
+    b.onclick = async () => {
+      const uid = b.dataset.uid;
+      try {
+        if (b.dataset.act === "refresh") await api("/api/accounts/refresh", { uid });
+        if (b.dataset.act === "toggle") await api("/api/accounts/disable", { uid, disabled: b.dataset.disabled !== "true" });
+        if (b.dataset.act === "remove") { if (!confirm("删除这个账号？")) return; await api("/api/accounts/remove", { uid }); }
+        await load();
+      } catch (e) { alert(e.message); }
+    };
+  });
+}
+
+function renderTenants() {
+  const list = state.tenants || [];
+  $("tenantHint").textContent = state.tenants_enabled
+    ? `租户层已启用（${list.length} 把 key）。根 API Key 不受限。`
+    : "租户层未启用 —— 生成一把 key 即自动启用。";
+  $("tenantBody").innerHTML = list.map((t) => `
+    <tr>
+      <td>${esc(t.name)}<div class="hint" style="margin:0">${esc(t.note || "")}</div></td>
+      <td class="mono">${esc(t.key.slice(0, 12))}… <button class="sm" data-copy="${esc(t.key)}">复制</button></td>
+      <td>${t.quota_cents > 0 ? money(t.quota_cents) : "不限"}</td>
+      <td>${money(t.used_cents)}<div class="hint" style="margin:0">${t.quota_cents > 0 ? "剩 " + money(t.remaining_cents) : ""}</div></td>
+      <td>${esc(t.max_effort)} / ${t.concurrency}并发</td><td>${t.requests}</td>
+      <td>${t.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag bad">停用</span>'}${t.running ? `<span class="tag warn">跑 ${t.running}</span>` : ""}</td>
+      <td style="white-space:nowrap">
+        <button class="sm" data-tact="quota" data-key="${esc(t.key)}">改额度</button>
+        <button class="sm" data-tact="reset" data-key="${esc(t.key)}">清零</button>
+        <button class="sm" data-tact="toggle" data-key="${esc(t.key)}" data-on="${t.enabled}">${t.enabled ? "停用" : "启用"}</button>
+        <button class="sm danger" data-tact="remove" data-key="${esc(t.key)}">删除</button>
+      </td></tr>`).join("") || `<tr><td colspan="8" class="empty">还没有租户 key</td></tr>`;
+  document.querySelectorAll("button[data-copy]").forEach((b) => { b.onclick = () => copy(b.dataset.copy, b); });
+  document.querySelectorAll("button[data-tact]").forEach((b) => {
+    b.onclick = async () => {
+      const key = b.dataset.key;
+      try {
+        if (b.dataset.tact === "quota") {
+          const v = prompt("新的额度（美元，0 = 不限）："); if (v === null) return;
+          await api("/api/tenants/update", { key, quota_cents: Math.round(parseFloat(v) * 100) });
+        } else if (b.dataset.tact === "reset") { if (!confirm("把已用量清零？")) return; await api("/api/tenants/reset", { key }); }
+        else if (b.dataset.tact === "toggle") await api("/api/tenants/update", { key, enabled: b.dataset.on !== "true" });
+        else if (b.dataset.tact === "remove") { if (!confirm("删除这把 key？对方会立刻不能用。")) return; await api("/api/tenants/remove", { key }); }
+        await load();
+      } catch (e) { alert(e.message); }
+    };
+  });
+}
+
+function renderModels() {
+  const q = ($("modelSearch").value || "").trim().toLowerCase();
+  const list = state.models.filter((m) => !q || m.id.toLowerCase().includes(q) || (m.name || "").toLowerCase().includes(q));
+  $("modelList").textContent = list.map((m) => m.id.padEnd(38) + (m.name || "")).join("\n") || "（没有匹配）";
+}
+
+function renderPrompts() {
+  $("promptList").innerHTML = Object.entries(promptDraft).map(([k, v]) => `
+    <div class="row" style="align-items:flex-start">
+      <code style="min-width:180px">${esc(k)}</code>
+      <div class="grow" style="white-space:pre-wrap;font-size:12.5px;opacity:.85">${esc(v) || "<i>（空 = 不注入）</i>"}</div>
+      <button class="sm danger" data-del="${esc(k)}">删</button>
+    </div>`).join("") || `<div class="hint">（还没配）</div>`;
+  document.querySelectorAll("button[data-del]").forEach((b) => {
+    b.onclick = () => { delete promptDraft[b.dataset.del]; renderPrompts(); };
+  });
+}
+
+function renderLocalFS() {
+  const lf = state.localfs || {};
+  $("lfOn").checked = !!lf.enabled;
+  $("lfRoot").value = lf.root || "";
+  $("lfWrite").checked = !!lf.allow_write;
+  $("lfExec").checked = !!lf.allow_exec;
+  $("lfCfg").textContent = JSON.stringify({
+    mcpServers: { "localfs": { url: location.origin + (lf.path || "/mcp/local") } }
+  }, null, 2);
+}
+
+function renderSetup() {
+  const base = location.origin + "/v1";
+  const key = state.api_key_set ? "你设置的客户端 Key" : "（未设 key）";
+  const dshCfg = `llm-pi-ai:
+  providers:
+    futuresearch:
+      displayName: FutureSearch Gateway
+      apiKeyEnv: FSGW_KEY
+      api: openai-completions
+      baseURL: ${base}
+      models:
+        - id: agent-medium
+          name: "Agent"
+          contextWindow: 200000
+          maxTokens: 32000
+          reasoningEfforts: {low: low, medium: medium, high: high}
+        - id: claude-fable-5
+          name: "Claude Fable-5"
+          contextWindow: 200000
+          maxTokens: 32000
+          reasoningEfforts: {low: low, medium: medium, high: high}`;
+  const cfgs = {
+    dsh: dshCfg + `\n\n# 凭据写进 ~/.dsh/.credentials.yaml 的 refs:\n#   FSGW_KEY: ${state.api_key_set ? "（你的客户端 Key）" : "no-key-needed"}`,
+    claude: JSON.stringify({ mcpServers: { futuresearch: { url: location.origin + (state.mcp?.path || "/mcp") } } }, null, 2),
+    cursor: JSON.stringify({ mcpServers: { futuresearch: { url: location.origin + (state.mcp?.path || "/mcp") } } }, null, 2),
+    curl: `curl ${base}/chat/completions \\\n  -H "Authorization: Bearer ${key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"agent-medium","stream":false,"messages":[{"role":"user","content":"2+2=?"}]}'`,
+  };
+  const hints = {
+    dsh: "把这段贴进 ~/.dsh/settings.yaml，凭据那行贴进 ~/.dsh/.credentials.yaml。嫌麻烦就点右边的「直接写入本机 dsh 配置」。",
+    claude: "Claude Desktop 的 claude_desktop_config.json 里加 mcpServers。注意：这里给的是 MCP（研究工具），不是模型。",
+    cursor: "Cursor / 其它 MCP 客户端同理：加一个 Streamable HTTP 的 MCP server。",
+    curl: "任何 OpenAI 兼容客户端都能用，Base URL 是 " + base + "。",
+  };
+  $("clientCfg").textContent = cfgs[client];
+  $("clientHint").textContent = hints[client];
+  $("mcpCfg").textContent = JSON.stringify({ mcpServers: { futuresearch: { url: location.origin + (state.mcp?.path || "/mcp") } } }, null, 2);
+  $("btnWriteDsh").classList.toggle("hidden", client !== "dsh");
+}
+
+function renderPreview() {
+  $("previewUrl").textContent = location.origin + (state.preview?.path || "/preview/");
+  $("previewSample").textContent = (state.preview?.path || "/preview/") + "index.html";
+  $("previewDir").textContent = state.preview?.dir ? "目录：" + state.preview.dir : "";
+}
+
+async function loadPreview() {
+  try {
+    const r = await api("/api/preview");
+    $("previewDir").textContent = "目录：" + r.dir;
+    $("previewBody").innerHTML = (r.files || []).map((f) => `
+      <tr><td class="mono">${esc(f.name)}${f.is_dir ? "/" : ""}</td><td>${(f.size / 1024).toFixed(1)} KB</td><td>${esc(f.mtime)}</td>
+      <td><a href="${(r.url || "/preview/") + encodeURIComponent(f.name)}" target="_blank">打开 ↗</a></td></tr>`
+    ).join("") || `<tr><td colspan="4" class="empty">目录还是空的 —— 让 agent 往里写个 index.html 就能预览</td></tr>`;
+  } catch (e) { $("previewBody").innerHTML = `<tr><td colspan="4" class="empty">${esc(e.message)}</td></tr>`; }
+}
+
+function renderSettings() {
+  $("sApiKey").value = state.api_key_set ? "（已设置，留空=不改动）" : "";
+  $("sApiKey").dataset.touched = "";
+  $("sAdmin").value = "";
+  $("sHard").value = state.hard_cooldown || "12h";
+  $("sSoft").value = state.soft_cooldown || "60s";
+  $("sMcp").checked = !!(state.mcp && state.mcp.enabled);
+  $("sPreview").checked = !!(state.preview && state.preview.enabled);
+  $("mcpPath").textContent = state.mcp?.path || "/mcp";
+  $("prevPath").textContent = state.preview?.path || "/preview/";
+}
+
+async function renderLogs() {
+  try {
+    const r = await api("/api/logs");
+    $("logs").textContent = (r.logs || []).map((l) => `${l.time}  ${l.text}`).join("\n") || "（还没有日志）";
+  } catch {}
+}
+
+// ---------- 导航 ----------
+document.querySelectorAll("nav a").forEach((a) => {
+  a.onclick = () => {
+    document.querySelectorAll("nav a").forEach((x) => x.classList.remove("on"));
+    a.classList.add("on");
+    document.querySelectorAll("section.page").forEach((s) => s.classList.remove("on"));
+    $("p-" + a.dataset.p).classList.add("on");
+    if (a.dataset.p === "preview") loadPreview();
+    if (a.dataset.p === "set") renderLogs();
+  };
+});
+document.addEventListener("click", (e) => {
+  const g = e.target.closest("[data-goto]");
+  if (g) document.querySelector(`nav a[data-p="${g.dataset.goto}"]`)?.click();
+});
+
+// ---------- 事件 ----------
+document.querySelectorAll("#clientTabs button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll("#clientTabs button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on"); client = b.dataset.c; renderSetup();
+  };
+});
+const addAccount = async (inputEl, errEl) => {
+  errEl.textContent = "";
+  try { await api("/api/accounts/add", { key: inputEl.value.trim() }); inputEl.value = ""; await load(); }
+  catch (e) { errEl.textContent = e.message; }
+};
+$("btnAdd").onclick = () => addAccount($("newKey"), $("addErr"));
+$("btnAdd2").onclick = () => addAccount($("newKey2"), $("addErr2"));
+$("btnRefreshAll").onclick = async () => { await api("/api/accounts/refresh", {}); setTimeout(load, 1200); };
+$("modelSearch").oninput = renderModels;
+$("btnCopy").onclick = (e) => copy($("clientCfg").textContent, e.target);
+$("btnLfCopy").onclick = (e) => copy($("lfCfg").textContent, e.target);
+$("btnLfSave").onclick = async () => {
+  $("lfMsg").textContent = "";
+  try {
+    await api("/api/config", { localfs: {
+      enabled: $("lfOn").checked, root: $("lfRoot").value.trim(),
+      allow_write: $("lfWrite").checked, allow_exec: $("lfExec").checked } });
+    $("lfMsg").textContent = "已保存（重启后生效）";
+    await load();
+  } catch (e) { $("lfMsg").textContent = e.message; }
+};
+$("btnWriteDsh").onclick = async () => {
+  $("writeMsg").textContent = "";
+  try {
+    const r = await api("/api/setup/dsh", { provider: "futuresearch" });
+    $("writeMsg").textContent = `${r.action} ✓ 已写入 ${r.settings}（备份 ${r.backup.split("/").pop()}）`;
+  } catch (e) { $("writeMsg").textContent = "失败：" + e.message; }
+};
+$("btnTenantAdd").onclick = async () => {
+  $("tenantErr").textContent = "";
+  const quota = parseFloat($("tQuota").value || "0");
+  try {
+    const r = await api("/api/tenants/create", {
+      name: $("tName").value.trim(), quota_cents: Math.round((quota || 0) * 100),
+      max_effort: $("tEffort").value, concurrency: parseInt($("tConc").value || "2", 10),
+    });
+    $("newKeyVal").value = r.key;
+    $("newKeyBox").classList.remove("hidden");
+    $("tName").value = ""; await load();
+  } catch (e) { $("tenantErr").textContent = e.message; }
+};
+$("btnCopyNewKey").onclick = (e) => copy($("newKeyVal").value, e.target);
+$("btnPromptAdd").onclick = () => {
+  const m = ($("pModel").value || "").trim() || "*";
+  promptDraft[m] = $("pText").value || "";
+  $("pText").value = ""; renderPrompts();
+};
+$("btnPromptSave").onclick = async () => {
+  try { await api("/api/config", { prompts: promptDraft }); $("promptErr").textContent = "已保存并生效"; await load(); }
+  catch (e) { $("promptErr").textContent = e.message; }
+};
+$("btnPreviewRefresh").onclick = loadPreview;
+$("btnPreviewOpen").onclick = () => window.open(state.preview?.path || "/preview/", "_blank");
+$("btnSaveSet").onclick = async () => {
+  const body = { hard_cooldown: $("sHard").value.trim(), soft_cooldown: $("sSoft").value.trim(), mcp_enabled: $("sMcp").checked, preview_enabled: $("sPreview").checked };
+  if ($("sApiKey").dataset.touched === "1") body.api_key = $("sApiKey").value.trim();
+  if ($("sAdmin").value) body.admin_password = $("sAdmin").value;
+  try { await api("/api/config", body); $("setErr").textContent = "已保存"; await load(); }
+  catch (e) { $("setErr").textContent = e.message; }
+};
+$("sApiKey").addEventListener("input", (e) => { e.target.dataset.touched = "1"; });
+$("btnLogin").onclick = async () => {
+  try { await api("/api/login", { password: $("pw").value }); await load(); }
+  catch (e) { $("loginErr").textContent = e.message; }
+};
+$("btnLoginRetry").onclick = () => { $("login").classList.add("hidden"); load().catch(() => {}); };
+
+load().catch((e) => { document.body.insertAdjacentHTML("beforeend", `<pre style="margin:20px">加载失败：${esc(e.message)}</pre>`); });
+setInterval(() => { if (state && !document.hidden) load().catch(() => {}); }, 15000);
+</script>
+</body>
+</html>

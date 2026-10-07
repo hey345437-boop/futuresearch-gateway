@@ -1,0 +1,6 @@
+/fsgw
+/futuresearch-gateway
+/data/
+/config.json
+*.log
+.DS_Store

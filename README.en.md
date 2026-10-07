@@ -224,6 +224,22 @@ Local tools are disabled by default. Set `localfs.enabled` and a `localfs.root` 
 
 Preview serves files from `preview.dir` at `preview.path`. On Windows, command execution requires an executable; shell scripts or `.cmd` wrappers need an explicit interpreter in the argument list.
 
+A recorded end-to-end run (a tool-capable model driving this gateway's `/mcp/local`):
+
+```
+1. model calls list_dir(dir='fsgw')                 -> gateway returns the tree
+2. model calls mkdir(path='fsgw/preview')           -> created
+3. model calls write_file(path=..., content=...)    -> wrote 706 bytes
+4. model reports done
+
+disk:   -rw-r--r-- 706 B  <root>/fsgw/preview/hello-mcp.html
+browser: GET /preview/hello-mcp.html -> 200
+```
+
+With a research model as the *main* model nothing like this happens: it writes the command
+into its answer and waits for you to paste it. The productive split is a tool-capable model
+for hands (read/write/run) and a research model for thinking, both behind this gateway.
+
 </details>
 
 ## Configuration

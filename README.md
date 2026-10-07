@@ -289,6 +289,21 @@ curl http://127.0.0.1:7868/v1/chat/completions \
 
 预览目录由 `preview.dir` 指定，默认是 `data/preview`。HTML 文件放进去后，可在 `/preview/` 打开。上游研究模型不会直接调用本地工具，需要客户端负责协调。
 
+一次完整闭环的实际记录（会调工具的模型 + 本网关的 `/mcp/local`）：
+
+```
+① 模型要调 list_dir(dir='fsgw')              → 网关执行，返回目录树
+② 模型要调 mkdir(path='fsgw/preview')        → 已创建
+③ 模型要调 write_file(path=…, content=…)     → 已写入 706 字节
+④ 模型收工
+
+磁盘：-rw-r--r-- 706 B  <root>/fsgw/preview/hello-mcp.html
+预览：GET /preview/hello-mcp.html → 200
+```
+
+反过来，把研究模型当**主模型**时不会发生任何文件操作 —— 它只会把命令写在回答里，等你复制粘贴。
+所以推荐的形态是分工：会调工具的模型负责读写与执行，研究模型负责调研与预测，两者挂在同一个网关后面。
+
 </details>
 
 <a id="configuration"></a>

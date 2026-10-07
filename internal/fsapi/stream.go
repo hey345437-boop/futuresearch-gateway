@@ -23,8 +23,21 @@ import (
 // ---------------------------------------------------------------------------
 
 type chatMessage struct {
-	Role    string          `json:"role"`
-	Content json.RawMessage `json:"content"`
+	Role       string          `json:"role"`
+	Content    json.RawMessage `json:"content"`
+	ToolCalls  []toolCallIn    `json:"tool_calls"`
+	ToolCallID string          `json:"tool_call_id"`
+	Name       string          `json:"name"`
+}
+
+// toolCallIn 客户端回传的历史工具调用（assistant 轮里的）。
+type toolCallIn struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
 }
 
 type chatRequest struct {
@@ -38,6 +51,11 @@ type chatRequest struct {
 	Reasoning struct {
 		Effort string `json:"effort"`
 	} `json:"reasoning"`
+	// Tools 客户端传的工具定义。上游没有 function calling 面，所以这里走
+	// 「提示词模拟」——见 toolbridge.go。
+	Tools []toolDef `json:"tools"`
+	// ToolChoice 目前只用于判断「客户端到底想不想调工具」，不改变协议。
+	ToolChoice json.RawMessage `json:"tool_choice"`
 }
 
 // effort 取请求里的档位（两种写法都认，顶层优先）。
@@ -64,11 +82,35 @@ func buildTask(msgs []chatMessage) string {
 	var turns []turn
 	for _, m := range msgs {
 		role := strings.ToLower(strings.TrimSpace(m.Role))
-		if role != "user" && role != "assistant" {
-			continue
-		}
-		if txt := contentText(m.Content); txt != "" {
-			turns = append(turns, turn{role, txt})
+		switch role {
+		case "user", "assistant":
+			txt := contentText(m.Content)
+			// assistant 轮里如果带 tool_calls，把它也写进上下文 ——
+			// 否则模型看不到自己上一轮调了什么，会重复调。
+			if role == "assistant" && len(m.ToolCalls) > 0 {
+				var b strings.Builder
+				if txt != "" {
+					b.WriteString(txt)
+					b.WriteString("\n")
+				}
+				for _, tc := range m.ToolCalls {
+					b.WriteString("（已调用工具 ")
+					b.WriteString(tc.Function.Name)
+					b.WriteString("，参数 ")
+					b.WriteString(tailRunes(tc.Function.Arguments, 300))
+					b.WriteString("）")
+				}
+				txt = b.String()
+			}
+			if txt != "" {
+				turns = append(turns, turn{role, txt})
+			}
+		case "tool":
+			// 工具执行结果 —— 标成「工具结果」而不是助手发言，
+			// 模型才知道这是它要的返回值。
+			if txt := contentText(m.Content); txt != "" {
+				turns = append(turns, turn{"tool", "【工具 " + m.Name + " 的结果】\n" + tailRunes(txt, 6000)})
+			}
 		}
 	}
 	if len(turns) == 0 {
@@ -83,8 +125,11 @@ func buildTask(msgs []chatMessage) string {
 	var b strings.Builder
 	for _, t := range prior {
 		who := "用户"
-		if t.role == "assistant" {
+		switch t.role {
+		case "assistant":
 			who = "助手"
+		case "tool":
+			who = "工具结果"
 		}
 		b.WriteString(who)
 		b.WriteString("：")
@@ -92,8 +137,13 @@ func buildTask(msgs []chatMessage) string {
 		b.WriteString("\n")
 	}
 	ctx := tailRunes(strings.TrimSpace(b.String()), contextBudget)
-	return "以下是本次对话的上下文（按时间顺序，可能已截断）：\n\n" + ctx +
-		"\n\n请基于以上上下文，研究并回答最后这个问题：\n" + last.text
+	head := "以下是本次对话的上下文（按时间顺序，可能已截断）：\n\n" + ctx + "\n\n"
+	// 最后一轮是**工具结果**时换个说法：那不是「用户的新问题」，
+	// 而是「你上一步要的返回值」——措辞不对模型会当成新任务重头再来。
+	if last.role == "tool" {
+		return head + "这是你上一步请求的工具返回值，请据此继续完成任务（该再调工具就继续调，该收尾就收尾）：\n" + last.text
+	}
+	return head + "请基于以上上下文，研究并回答最后这个问题：\n" + last.text
 }
 
 // contentText 从 message.content 取纯文本。
@@ -164,7 +214,7 @@ func tailRunes(s string, n int) string {
 //   - 正常完成：正文 + finish_reason=stop + [DONE] + Close()
 //   - 失败/超时：CloseWithError（统一层发 error 帧）
 //   - 下游断开：写管道失败，直接退出（不再打上游）
-func (c *Client) pump(pw *io.PipeWriter, key string, spec modelSpec, ref *taskRef, model string, promptRunes int) {
+func (c *Client) pump(pw *io.PipeWriter, key string, spec modelSpec, ref *taskRef, model string, promptRunes int, toolsActive bool) {
 	id := "chatcmpl-fs-" + ref.TaskID
 	started := time.Now()
 	deadline := started.Add(maxWait)
@@ -224,7 +274,7 @@ func (c *Client) pump(pw *io.PipeWriter, key string, spec modelSpec, ref *taskRe
 
 		switch st.Status {
 		case "completed":
-			c.emitResult(pw, id, model, key, ref.TaskID, promptRunes)
+			c.emitResult(pw, id, model, key, ref.TaskID, promptRunes, toolsActive)
 			return
 		case "failed", "revoked":
 			reason := "任务被上游判定为失败"
@@ -294,7 +344,7 @@ func progressNote(st *taskRef, waited time.Duration) string {
 }
 
 // emitResult 取结果并按 OpenAI 语义回放：研究过程 → 正文 → stop → [DONE]。
-func (c *Client) emitResult(pw *io.PipeWriter, id, model, key, taskID string, promptRunes int) {
+func (c *Client) emitResult(pw *io.PipeWriter, id, model, key, taskID string, promptRunes int, toolsActive bool) {
 	res, status, raw, err := c.taskResultOf(key, taskID)
 	if err != nil {
 		_ = pw.CloseWithError(fmt.Errorf("futuresearch: 取任务结果失败：%w", err))
@@ -319,6 +369,30 @@ func (c *Client) emitResult(pw *io.PipeWriter, id, model, key, taskID string, pr
 	for _, part := range chunkRunesOf(reasoning, chunkRunes) {
 		if err := writeChunk(pw, id, model, map[string]any{"reasoning_content": part}, nil); err != nil {
 			_ = pw.CloseWithError(err)
+			return
+		}
+	}
+	// ★ 工具桥：客户端带了 tools 时，正文**先别当文本发** ——
+	// 它可能是一行工具调用 JSON。解析得出来就发 tool_calls（coding agent 靠这个驱动），
+	// 解析不出来再当普通文本发（优雅降级，不会把请求搞坏）。
+	if toolsActive {
+		if tc := parseToolCall(content); tc != nil {
+			call := openAIToolCall(tc, 0)
+			delta := map[string]any{"tool_calls": []any{
+				map[string]any{"index": 0, "id": call["id"], "type": "function",
+					"function": map[string]any{"name": tc.Name, "arguments": string(tc.Args)}},
+			}}
+			finish := "tool_calls"
+			if err := writeChunk(pw, id, model, delta, &finish); err != nil {
+				_ = pw.CloseWithError(err)
+				return
+			}
+			if err := writeUsageChunk(pw, id, model, promptRunes, len([]rune(content))+len([]rune(reasoning))); err != nil {
+				_ = pw.CloseWithError(err)
+				return
+			}
+			_, _ = io.WriteString(pw, "data: [DONE]\n\n")
+			_ = pw.Close()
 			return
 		}
 	}

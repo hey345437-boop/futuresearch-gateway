@@ -191,6 +191,11 @@ func (c *Client) ChatStream(k *Key, body []byte) (io.ReadCloser, int, []byte, er
 	if pre := c.promptFor(spec.ID); pre != "" {
 		task = pre + "\n\n" + task
 	}
+	// 客户端带了 tools → 走「提示词模拟工具调用」（上游没有 function calling 面）。
+	toolsActive := len(req.Tools) > 0
+	if toolsActive {
+		task = toolsPrompt(req.Tools) + "\n" + task
+	}
 
 	ref, status, raw, err := c.createTask(key, spec, task)
 	if err != nil {
@@ -201,7 +206,7 @@ func (c *Client) ChatStream(k *Key, body []byte) (io.ReadCloser, int, []byte, er
 	}
 
 	pr, pw := io.Pipe()
-	go c.pump(pw, key, spec, ref, req.Model, len([]rune(task)))
+	go c.pump(pw, key, spec, ref, req.Model, len([]rune(task)), toolsActive)
 	return pr, http.StatusOK, nil, nil
 }
 

@@ -39,7 +39,7 @@ FutureSearch 通过“提交任务 → 等待完成 → 读取结果”提供研
 | **账号管理** | 添加多个 API Key、查看余额、复用可用账号，遇到异常进入冷却 |
 | **租户额度** | 给不同使用者分配 Key，设置额度、并发和允许的档位；额度按网关估算扣减 |
 | **回答风格** | 为所有模型或指定模型设置前置指令 |
-| **研究工具** | 通过 MCP 调用 `research`、`forecast` 和 `models` |
+| **研究工具** | 通过 MCP 调用 10 个工具：`research` / `forecast` / `decision` / `submit_research` / `task_*` / `balance` / `models` |
 | **本地项目** | 按需启用文件读取、搜索、写入和命令执行，另有 HTML 预览入口 |
 
 模型名单来自上游接口定义，具体权限和费用由 FutureSearch 决定。网关额度和 token 用量是估算值，不等于平台实际账单。
@@ -209,6 +209,27 @@ curl http://127.0.0.1:7868/v1/chat/completions \
 
 <a id="models"></a>
 
+### MCP 工具一览
+
+| 工具 | 干什么 | 阻塞吗 |
+| :--- | :--- | :--- |
+| `research` | 调研一个问题，要出处 | ✅ 等结果（low 20~60s） |
+| `forecast` | 是非问题给 0–100 概率 | ✅ 等（实测 ≈3 分钟） |
+| `decision` | **决策分析**：列选项 → 每个选项的结果预测 + 量化估计 + 风险 → 对比表 + 推荐 | ✅ 等 |
+| `submit_research` | **异步**投任务，立刻返回 `task_id` | ❌ 立刻返回 |
+| `task_status` | 查进度（状态 / 进度 / 当前步骤 / 已等待） | ❌ |
+| `task_result` | 取已完成任务的完整结果 | ❌ |
+| `task_cancel` | 取消还在跑的任务（省额度） | ❌ |
+| `task_cost` | 查任务费用（美元） | ❌ |
+| `balance` | 号池余额汇总（合计 + 可用/冷却/停用） | ❌ |
+| `models` | 列出可用模型 | ❌ |
+
+**长任务用异步那套**：`submit_research` → 过一会儿 `task_status` → 就绪后 `task_result`。
+同步的 `research` 会一直挂着，任务跑十分钟就顶到客户端的超时了。
+
+> `task_*` 系列依赖**进程内登记表**（task_id → 账号），所以网关重启后旧 task_id 会失效 ——
+> 报错信息里会说明这一点。上游任务本身不受影响，重启后仍可在 FutureSearch 网页端看到。
+
 ## 模型选择
 
 | 选择方式 | 示例 | 适合的场景 |
@@ -268,7 +289,7 @@ curl http://127.0.0.1:7868/v1/chat/completions \
 
 | 入口 | 工具 | 是否访问本地文件 |
 | :--- | :--- | :--- |
-| `/mcp` | `research` / `forecast` / `models` | 否 |
+| `/mcp` | `research` / `forecast` / `decision` / `submit_research` / `task_status` / `task_result` / `task_cancel` / `task_cost` / `balance` / `models` | 否 |
 | `/mcp/local` | `list_dir` / `read_file` / `search`，以及可选的写入和执行工具 | 是 |
 
 本地工具默认关闭，启用时需填写允许访问的根目录。写入与执行权限分别控制，修改后重启程序：

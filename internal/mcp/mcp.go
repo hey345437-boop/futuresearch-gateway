@@ -18,12 +18,6 @@ import (
 	"strings"
 )
 
-// Completer 网关提供的进程内调用能力（避免 HTTP 自环）。
-type Completer interface {
-	Complete(model, prompt string) (answer, reasoning string, err error)
-	Models() []string
-}
-
 // ToolSet 一组 MCP 工具。一个网关可以挂多组（研究 / 本地文件 / …），
 // 每组是**独立的 MCP server**（各自的 URL、各自的 serverInfo.name）——
 // 混在一起会让客户端分不清「哪些工具会碰我的磁盘」。

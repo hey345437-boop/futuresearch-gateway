@@ -42,6 +42,7 @@ type Server struct {
 	usage    []UsageLine
 	started  time.Time
 	requests int64
+	tasks    *taskRegistry
 
 	cfgPathOverride string
 }
@@ -79,7 +80,9 @@ func New(o Options) *Server {
 		cfg: o.Config, pool: o.Pool, up: o.Up, panel: o.Panel,
 		mcpHandler: o.MCP, tenants: o.Tenants,
 		sessions: map[string]time.Time{},
-		started:  time.Now(),
+
+		tasks:   newTaskRegistry(),
+		started: time.Now(),
 	}
 	s.appendLog("网关启动，监听 " + s.cfg.Listen.Addr())
 	return s

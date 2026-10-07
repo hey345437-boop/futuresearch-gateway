@@ -76,6 +76,8 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           push: true
+          # ★ 必须显式列多平台：只写 amd64 的话 Apple Silicon（arm64）用户拉不动
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
